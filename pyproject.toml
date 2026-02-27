@@ -1,6 +1,6 @@
 [project]
 name = "synthetichealthsimulator"
-version = "1.0.0"
+version = "1.0.1"
 description = "Synthetic Medical Data Generator for Machine Learning Tasks"
 readme = "README.md"
 requires-python = ">=3.14"
