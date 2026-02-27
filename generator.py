@@ -18,8 +18,8 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=pd.errors.PerformanceWarning)
 
-__version__ = "1.0.1"
-__version_info__ = (1, 0, 1)
+__version__ = "1.0.2"
+__version_info__ = (1, 0, 2)
 
 
 class DataGenerator:

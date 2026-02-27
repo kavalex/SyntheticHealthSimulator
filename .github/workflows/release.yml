@@ -26,7 +26,8 @@ jobs:
 
       - name: Create release archive
         run: |
-          cd data/synthetic
+          VERSION=${GITHUB_REF_NAME}
+          cd data/synthetic_$VERSION
           zip -r ../../synthetic_data_${{ github.ref_name }}.zip .
 
       - name: Create GitHub Release
