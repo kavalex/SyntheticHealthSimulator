@@ -1,0 +1,39 @@
+name: Create Release with Data
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: pip install numpy pandas
+
+      - name: Generate data
+        run: python generator.py
+
+      - name: Create release archive
+        run: |
+          cd data/synthetic
+          zip -r ../../synthetic_data_${{ github.ref_name }}.zip .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: synthetic_data_${{ github.ref_name }}.zip
+          generate_release_notes: true
+          draft: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

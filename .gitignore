@@ -1,5 +1,10 @@
+# IDE
+.idea/
+
+# Generated data
+data/
+
+# Temporary files
+update
 __pycache__/
 *.pyc
-data/synthetic/
-.DS_Store
-.venv/

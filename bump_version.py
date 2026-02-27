@@ -7,7 +7,6 @@ from pathlib import Path
 
 
 def bump_version(part: str = "patch"):
-
     version_file = Path("VERSION")
     current = version_file.read_text().strip()
     major, minor, patch = map(int, current.split("."))
@@ -24,8 +23,10 @@ def bump_version(part: str = "patch"):
 
     new_version = f"{major}.{minor}.{patch}"
 
+    # VERSION
     version_file.write_text(f"{new_version}\n")
 
+    # generator.py
     generator = Path("generator.py")
     content = generator.read_text()
     content = re.sub(
@@ -37,6 +38,16 @@ def bump_version(part: str = "patch"):
         content,
     )
     generator.write_text(content)
+
+    # pyproject.toml
+    pyproject = Path("pyproject.toml")
+    if pyproject.exists():
+        content = pyproject.read_text()
+        content = re.sub(r'version = "[\d.]+"', f'version = "{new_version}"', content)
+        pyproject.write_text(content)
+        print(f"pyproject.toml version updated to {new_version}")
+    else:
+        print("pyproject.toml not found, skipping.")
 
     print(f"Version bumped: {current} → {new_version}")
 

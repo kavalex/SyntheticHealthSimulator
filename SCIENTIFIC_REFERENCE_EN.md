@@ -1,12 +1,17 @@
- # Scientific Reference on Synthetic Medical Data Generation Model
+# Scientific Reference on Synthetic Medical Data Generation Model
 
 ## Introduction
 
-The presented synthetic medical data generation model is based on a mechanistic approach integrating physiological metabolism models, empirical epidemiological data, and clinical risk assessment scales. The model is designed to simulate the impact of lifestyle on human health over a 20-year period. All coefficients are derived from meta-analyses, systematic reviews, and calibrated to ensure realistic annual changes.
+The presented synthetic medical data generation model is based on a mechanistic approach integrating physiological
+metabolism models, empirical epidemiological data, and clinical risk assessment scales. The model is designed to
+simulate the impact of lifestyle on human health over a 20-year period. All coefficients are derived from meta-analyses,
+systematic reviews, and calibrated to ensure realistic annual changes.
 
 **Project:** `SyntheticHealthSimulator`
 
-**IMPORTANT**: This model contains scientifically justified simplifications and theoretical assumptions specifically made for creating an educational synthetic dataset for ML model training. It is NOT intended for clinical application or replacement of professional medical assessment.
+**IMPORTANT**: This model contains scientifically justified simplifications and theoretical assumptions specifically
+made for creating an educational synthetic dataset for ML model training. It is NOT intended for clinical application or
+replacement of professional medical assessment.
 
 ---
 
@@ -25,11 +30,15 @@ The model utilizes the Mifflin-St Jeor equation:
 
 $BMR_{\text{adjusted}} = BMR_{\text{baseline}} + 8.5 \times (\text{MuscleMass}_{\text{kg}} - \text{TypicalMuscleMass}_{\text{kg}})$
 
-where $\text{TypicalMuscleMass} = 0.3 \times \text{body weight}$ (typical muscle mass comprises ~30% of body weight), and 8.5 kcal/kg/day represents the difference in energy expenditure between muscle and adipose tissue at rest.
+where $\text{TypicalMuscleMass} = 0.3 \times \text{body weight}$ (typical muscle mass comprises ~30% of body weight),
+and 8.5 kcal/kg/day represents the difference in energy expenditure between muscle and adipose tissue at rest.
 
-***Note:** The value of 0.3 × body weight is used as a theoretical reference for calculating deviation; actual muscle mass in the data may be substantially lower (see Section 1.4). This simplification is adopted for educational purposes and does not affect relative comparisons.*
+***Note:** The value of 0.3 × body weight is used as a theoretical reference for calculating deviation; actual muscle
+mass in the data may be substantially lower (see Section 1.4). This simplification is adopted for educational purposes
+and does not affect relative comparisons.*
 
-*Note:* The Mifflin-St Jeor formula already includes age-related correction. Additional metabolic decline with age is modeled through changes in muscle mass (Section 1.4).
+*Note:* The Mifflin-St Jeor formula already includes age-related correction. Additional metabolic decline with age is
+modeled through changes in muscle mass (Section 1.4).
 
 ### 1.2 Total Daily Energy Expenditure (TDEE) Calculation
 
@@ -39,14 +48,17 @@ $TDEE = BMR_{\text{adjusted}} \times \text{activity factor}$
 
 **Activity Factors by Calibrated Classification:**
 
-| MET-minutes/week | Factor | Description                              |
-|------------------|--------|------------------------------------------|
-| &lt; 450         | 1.2    | Sedentary/light activity (1-2 days)      |
-| 450-900          | 1.375  | Moderate activity (3-5 days)             |
-| 900-1500         | 1.55   | High activity (6-7 days)                 |
-| &gt; 1500        | 1.725  | Very high activity (athletes)            |
+| MET-minutes/week | Factor | Description                         |
+|------------------|--------|-------------------------------------|
+| &lt; 450         | 1.2    | Sedentary/light activity (1-2 days) |
+| 450-900          | 1.375  | Moderate activity (3-5 days)        |
+| 900-1500         | 1.55   | High activity (6-7 days)            |
+| &gt; 1500        | 1.725  | Very high activity (athletes)       |
 
-*Calibration:* Thresholds are adjusted from the original WHO classification by days of week to MET-minutes to ensure realistic population distribution (~40% sedentary, ~35% light, ~20% moderate, ~5% high activity). The factor of 1.9 for extreme loads (&gt;3000 MET-min/week) is **not utilized** — the upper threshold is limited to 1.725 to prevent non-physiological TDEE values &gt;4000 kcal.
+*Calibration:* Thresholds are adjusted from the original WHO classification by days of week to MET-minutes to ensure
+realistic population distribution (~40% sedentary, ~35% light, ~20% moderate, ~5% high activity). The factor of 1.9 for
+extreme loads (&gt;3000 MET-min/week) is **not utilized** — the upper threshold is limited to 1.725 to prevent
+non-physiological TDEE values &gt;4000 kcal.
 
 ### 1.3 Body Weight Change Model
 
@@ -71,9 +83,11 @@ $\Delta W_{\text{muscle}} = \Delta W \times \text{ProteinFactor}$
 
 $\Delta W_{\text{fat}} = \Delta W \times (1 - \text{ProteinFactor})$
 
-where $\text{StrengthActivity}$ is the number of strength training sessions per week (0-5, calculated as $\text{strength\_met} / 150$), and $\text{ProteinBalance}$: 1 for intake &gt;1.6 g/kg, 0 for 0.8-1.6, -1 for &lt;0.8.
+where $\text{StrengthActivity}$ is the number of strength training sessions per week (0-5, calculated
+as $\text{strength\_met} / 150$), and $\text{ProteinBalance}$: 1 for intake &gt;1.6 g/kg, 0 for 0.8-1.6, -1 for &lt;0.8.
 
-*Note:* The maximum proportion of muscle in weight gain is limited to 40% to prevent physiologically impossible scenarios. During caloric deficit, muscle mass may decrease.
+*Note:* The maximum proportion of muscle in weight gain is limited to 40% to prevent physiologically impossible
+scenarios. During caloric deficit, muscle mass may decrease.
 
 #### 1.3.3 Simplified Body Composition Model
 
@@ -81,7 +95,10 @@ where $\text{StrengthActivity}$ is the number of strength training sessions per 
 
 $\text{Weight} = \text{Fat mass} + \text{Muscle mass} + \text{Constant}$
 
-where **Constant** (bone mass, organs, water) is considered invariant throughout the modeling period. This simplification is necessary for computational efficiency and focus on the dynamics of fat and muscle mass as key factors in metabolism and risk. In reality, bone and organ mass also undergo minor changes, but their contribution to risk variability is minimal compared to adipose and muscle tissue.
+where **Constant** (bone mass, organs, water) is considered invariant throughout the modeling period. This
+simplification is necessary for computational efficiency and focus on the dynamics of fat and muscle mass as key factors
+in metabolism and risk. In reality, bone and organ mass also undergo minor changes, but their contribution to risk
+variability is minimal compared to adipose and muscle tissue.
 
 Weight update calculation formula:
 $\text{Weight}_{t+1} = (\text{Fat mass}_t + \Delta W_{\text{fat}}) + (\text{Muscle mass}_t + \Delta W_{\text{muscle}}) + \text{Constant}$
@@ -104,7 +121,8 @@ $\text{BMI}_{\text{corr}} = \text{BMI} \times (1 - 0.01 \times \text{MuscleMassF
 
 - *for men: $\mathcal{N}(12, 3^2)$, constrained [0,20];*
 - *for women: $\mathcal{N}(8, 2.5^2)$, constrained [0,20].*
-  *Thus, average muscle mass in kg is 6 kg for men and 4 kg for women, consistent with the simplified body composition model.*
+  *Thus, average muscle mass in kg is 6 kg for men and 4 kg for women, consistent with the simplified body composition
+  model.*
 
 ---
 
@@ -127,7 +145,9 @@ $$
 \end{cases}
 $$
 
-*Calibration:* The coefficient of 0.03 mmHg per 1 g/day above the 10 g threshold is reduced to balance features in the ML model. Epidemiological data (Xin et al., 2001) indicate an effect of ~0.1 mmHg/g, but a reduced value is used in the model to prevent alcohol factor dominance.
+*Calibration:* The coefficient of 0.03 mmHg per 1 g/day above the 10 g threshold is reduced to balance features in the
+ML model. Epidemiological data (Xin et al., 2001) indicate an effect of ~0.1 mmHg/g, but a reduced value is used in the
+model to prevent alcohol factor dominance.
 
 #### 2.1.3 Sleep Effect (theoretical assumption)
 
@@ -135,13 +155,13 @@ $\text{SleepEffect} = \max(0, 6 - \text{AvgSleepHours}) \times 0.5$
 
 #### 2.1.4 Table of Coefficients Affecting SBP:
 
-| Factor    | Coefficient | Unit of measurement                   | Scientific source         | Note                            |
-|-----------|-------------|---------------------------------------|---------------------------|---------------------------------|
-| BMI       | +0.7        | mmHg per 1 kg/m²                      | INTERSALT Study           | —                               |
-| Sodium    | **+0.25**   | mmHg per 100 mg/day                   | He et al., 2013 (Adj.)    | *Calibrated: original ~0.5-1.0* |
-| Alcohol   | **+0.03**   | mmHg per 1 g/day above threshold      | Xin et al., 2001 (Adj.)   | *Calibrated: original ~0.1*     |
-| Stress    | +0.5        | mmHg per 1 scale unit                 | Everson-Rose et al., 2004 | —                               |
-| Sleep     | +0.5        | mmHg per hour of sleep deficit        | Theoretical assumption    | —                               |
+| Factor  | Coefficient | Unit of measurement              | Scientific source         | Note                            |
+|---------|-------------|----------------------------------|---------------------------|---------------------------------|
+| BMI     | +0.7        | mmHg per 1 kg/m²                 | INTERSALT Study           | —                               |
+| Sodium  | **+0.25**   | mmHg per 100 mg/day              | He et al., 2013 (Adj.)    | *Calibrated: original ~0.5-1.0* |
+| Alcohol | **+0.03**   | mmHg per 1 g/day above threshold | Xin et al., 2001 (Adj.)   | *Calibrated: original ~0.1*     |
+| Stress  | +0.5        | mmHg per 1 scale unit            | Everson-Rose et al., 2004 | —                               |
+| Sleep   | +0.5        | mmHg per hour of sleep deficit   | Theoretical assumption    | —                               |
 
 ### 2.2 HDL Cholesterol
 
@@ -149,19 +169,22 @@ $\text{SleepEffect} = \max(0, 6 - \text{AvgSleepHours}) \times 0.5$
 
 $\Delta HDL = +0.2 \times \left(\frac{CardioActivity}{1000}\right) + 0.3 \times \left(\frac{StrengthActivity}{450}\right) - 0.05 \times \Delta SFA_{ppt} + 0.1 \times Fiber_{1g} + 0.05 \times \text{MuscleMassFactor}$
 
-where $StrengthActivity$ is measured in MET-minutes, and 450 MET-minutes = 3 sessions of 150 MET-minutes at moderate intensity. **$SFA$ (saturated fat) is passed as proportion (0.0–1.0), $\Delta SFA_{ppt}$ — change in percentage points ($\Delta SFA \times 100$).**
+where $StrengthActivity$ is measured in MET-minutes, and 450 MET-minutes = 3 sessions of 150 MET-minutes at moderate
+intensity. **$SFA$ (saturated fat) is passed as proportion (0.0–1.0), $\Delta SFA_{ppt}$ — change in percentage
+points ($\Delta SFA \times 100$).**
 
 **Table of Coefficients Affecting HDL:**
 
-| Factor                | Coefficient | Unit of measurement                    | Scientific source       |
-|-----------------------|-------------|----------------------------------------|-------------------------|
-| Cardio activity       | +0.2        | mg/dL per 1000 MET-minutes             | Kodama et al., 2007     |
-| Strength training     | +0.3        | mg/dL per 450 MET-minutes (≈3 sessions)| Theoretical assumption  |
-| Saturated fats (SFA)  | -0.05       | mg/dL per 1 percentage point           | Mensink et al., 2003    |
-| Fiber                 | +0.1        | mg/dL per 1g                           | Brown et al., 1999      |
-| Muscle mass           | +0.05       | mg/dL per 1 index unit                 | Theoretical assumption  |
+| Factor               | Coefficient | Unit of measurement                     | Scientific source      |
+|----------------------|-------------|-----------------------------------------|------------------------|
+| Cardio activity      | +0.2        | mg/dL per 1000 MET-minutes              | Kodama et al., 2007    |
+| Strength training    | +0.3        | mg/dL per 450 MET-minutes (≈3 sessions) | Theoretical assumption |
+| Saturated fats (SFA) | -0.05       | mg/dL per 1 percentage point            | Mensink et al., 2003   |
+| Fiber                | +0.1        | mg/dL per 1g                            | Brown et al., 1999     |
+| Muscle mass          | +0.05       | mg/dL per 1 index unit                  | Theoretical assumption |
 
-*Note:* SFA is stored and passed in the model as a proportion (e.g., 0.30 for 30%). For change calculation, conversion to percentage points is used: $\Delta SFA_{ppt} = \Delta SFA \times 100$.
+*Note:* SFA is stored and passed in the model as a proportion (e.g., 0.30 for 30%). For change calculation, conversion
+to percentage points is used: $\Delta SFA_{ppt} = \Delta SFA \times 100$.
 
 ### 2.3 Glycated Hemoglobin (HbA1c)
 
@@ -169,9 +192,13 @@ where $StrengthActivity$ is measured in MET-minutes, and 450 MET-minutes = 3 ses
 
 $\Delta HbA1c = 0.15 \times \Delta SimpleCarbs_{10g} + 0.03 \times \Delta BMI - 0.002 \times Fiber_{1g} - 0.01 \times Activity_{1000MET} + \mathbf{0.002} \times \text{KBJU\_Imbalance} - 0.005 \times \text{MuscleMassFactor} + 0.01 \times \text{SleepDeficit}$
 
-*Calibration:* The coefficient for KBJU **0.002 is applied per 1 index unit** (0-100 scale), maximum contribution at KBJU=100 is +0.2%. The coefficient is reduced from 0.02 (initial specification) to prevent factor dominance (max contribution 2% → 0.2%) and ensure feature balance.
+*Calibration:* The coefficient for KBJU **0.002 is applied per 1 index unit** (0-100 scale), maximum contribution at
+KBJU=100 is +0.2%. The coefficient is reduced from 0.02 (initial specification) to prevent factor dominance (max
+contribution 2% → 0.2%) and ensure feature balance.
 
-**Range constraint:** HbA1c values are strictly limited to the range 3.5–12%. Values &gt;12% correspond to severe, uncontrolled diabetes and are unlikely for a 20-year cohort without fatal outcome. In code: `HbA1c = clip(calculated, 3.5, 12.0)`
+**Range constraint:** HbA1c values are strictly limited to the range 3.5–12%. Values &gt;12% correspond to severe,
+uncontrolled diabetes and are unlikely for a 20-year cohort without fatal outcome. In code:
+`HbA1c = clip(calculated, 3.5, 12.0)`
 
 #### 2.3.2 KBJU Imbalance Index
 
@@ -191,19 +218,20 @@ where:
 
 $\text{KBJU\_Imbalance} = \min(100, \text{raw\_KBJU} \times 10)$
 
-The resulting index in the range 0-100 is used in calculations. Multiplication by 10 with constraint at 100 is a technical solution for compatibility with the logistic risk model, not a clinical scale.
+The resulting index in the range 0-100 is used in calculations. Multiplication by 10 with constraint at 100 is a
+technical solution for compatibility with the logistic risk model, not a clinical scale.
 
 **Table of Coefficients Affecting HbA1c:**
 
-| Factor                | Coefficient | Unit of measurement         | Scientific source         |
-|-----------------------|-------------|-----------------------------|---------------------------|
-| Simple carbohydrates  | +0.15       | % per 10g                   | Brand-Miller et al., 2009 |
-| BMI                   | +0.03       | % per 1 kg/m²               | Abdullah et al., 2010     |
-| Fiber                 | -0.002      | % per 1g                    | Weickert et al., 2006     |
-| Physical activity     | -0.01       | % per 1000 MET              | Boule et al., 2001        |
-| KBJU imbalance        | +0.002      | % per 1 index unit (0-100)  | Theoretical assumption    |
-| Muscle mass           | -0.005      | % per 1 index unit          | Theoretical assumption    |
-| Sleep deficit         | +0.01       | % with sleep &lt;6 hours    | Theoretical assumption    |
+| Factor               | Coefficient | Unit of measurement        | Scientific source         |
+|----------------------|-------------|----------------------------|---------------------------|
+| Simple carbohydrates | +0.15       | % per 10g                  | Brand-Miller et al., 2009 |
+| BMI                  | +0.03       | % per 1 kg/m²              | Abdullah et al., 2010     |
+| Fiber                | -0.002      | % per 1g                   | Weickert et al., 2006     |
+| Physical activity    | -0.01       | % per 1000 MET             | Boule et al., 2001        |
+| KBJU imbalance       | +0.002      | % per 1 index unit (0-100) | Theoretical assumption    |
+| Muscle mass          | -0.005      | % per 1 index unit         | Theoretical assumption    |
+| Sleep deficit        | +0.01       | % with sleep &lt;6 hours   | Theoretical assumption    |
 
 ### 2.4 Total Cholesterol and non-HDL
 
@@ -211,9 +239,12 @@ The resulting index in the range 0-100 is used in calculations. Multiplication b
 
 $\Delta TC = +1.5 \times \Delta SFA_{ppt} - 0.5 \times Fiber_{1g} - 0.3 \times \left(\frac{Activity_{total}}{1000}\right)$
 
-where $\Delta SFA_{ppt}$ is change in percentage points (e.g., from 0.30 to 0.31 = +1 ppt). **SFA is passed to the model as a proportion (0.0–1.0), therefore the formula in code is:** $1.5 \times (\Delta SFA \times 100)$.
+where $\Delta SFA_{ppt}$ is change in percentage points (e.g., from 0.30 to 0.31 = +1 ppt). **SFA is passed to the model
+as a proportion (0.0–1.0), therefore the formula in code is:** $1.5 \times (\Delta SFA \times 100)$.
 
-***Note:** Genetic risk affects only the baseline TC level (at initialization), not annual change. In code, $0.8 \times \text{GeneticRisk}_{\text{CVD}}$ is added to the baseline TC level (in mg/dL), followed by clipping to 150–350 mg/dL. This reflects biological predisposition rather than the rate of change under risk factor exposure.*
+***Note:** Genetic risk affects only the baseline TC level (at initialization), not annual change. In
+code, $0.8 \times \text{GeneticRisk}_{\text{CVD}}$ is added to the baseline TC level (in mg/dL), followed by clipping to
+150–350 mg/dL. This reflects biological predisposition rather than the rate of change under risk factor exposure.*
 
 **Non-HDL cholesterol calculation:**
 
@@ -222,22 +253,26 @@ where $\Delta SFA_{ppt}$ is change in percentage points (e.g., from 0.30 to 0.31
 3. **Non-HDL (mg/dL) = TC - HDL**
 4. **Non-HDL (mmol/L) = (TC - HDL) / 38.67** (conversion)
 
-*Note:* With strong measurement noise, negative intermediate values are possible; in code, `clip(non_hdl_mgdl, 50, 232)` is applied before conversion to mmol/L. The resulting value in mmol/L is then additionally clipped to range [2.0, 6.0] (see Section 8.3).
+*Note:* With strong measurement noise, negative intermediate values are possible; in code, `clip(non_hdl_mgdl, 50, 232)`
+is applied before conversion to mmol/L. The resulting value in mmol/L is then additionally clipped to range [2.0, 6.0] (
+see Section 8.3).
 
 **Table of Coefficients Affecting Total Cholesterol:**
 
-| Factor                | Coefficient | Unit of measurement          | Scientific source    | Note                   |
-|-----------------------|-------------|------------------------------|----------------------|------------------------|
-| Saturated fats (SFA)  | +1.5        | mg/dL per 1 percentage point | Clarke et al., 1997  | —                      |
-| Fiber                 | -0.5        | mg/dL per 1g                 | Brown et al., 1999   | —                      |
-| Physical activity     | -0.3        | mg/dL per 1000 MET-minutes   | Kodama et al., 2007  | —                      |
-| Genetics              | +0.8        | mg/dL per 1 genetic unit     | Hindy et al., 2020   | Baseline level only    |
+| Factor               | Coefficient | Unit of measurement          | Scientific source   | Note                |
+|----------------------|-------------|------------------------------|---------------------|---------------------|
+| Saturated fats (SFA) | +1.5        | mg/dL per 1 percentage point | Clarke et al., 1997 | —                   |
+| Fiber                | -0.5        | mg/dL per 1g                 | Brown et al., 1999  | —                   |
+| Physical activity    | -0.3        | mg/dL per 1000 MET-minutes   | Kodama et al., 2007 | —                   |
+| Genetics             | +0.8        | mg/dL per 1 genetic unit     | Hindy et al., 2020  | Baseline level only |
 
 ### 2.5 Measurement Noise and Biological Variability
 
-To ensure data realism and prevent ML model overfitting on ideal formulas, random noise is added to final biomarker values.
+To ensure data realism and prevent ML model overfitting on ideal formulas, random noise is added to final biomarker
+values.
 
-**Rationale:** Laboratory analyses have measurement error, and physiological parameters fluctuate daily (biological variability).
+**Rationale:** Laboratory analyses have measurement error, and physiological parameters fluctuate daily (biological
+variability).
 
 **Noise formula:**
 
@@ -276,39 +311,45 @@ Where coefficients:
 **Calibration rationale:**
 
 - Intercept -3.8 ensures expected CVD incidence of ~15-20% over 20 years in a population aged 35±8 years.
-- Smoking coefficient 0.08 is reduced relative to epidemiological data (0.6) to prevent smoking factor dominance and ensure feature balance for ML. At 20 pack-years, the contribution is $1.6$ (OR $\approx 5.0$), creating a discernible but not overwhelming effect.
+- Smoking coefficient 0.08 is reduced relative to epidemiological data (0.6) to prevent smoking factor dominance and
+  ensure feature balance for ML. At 20 pack-years, the contribution is $1.6$ (OR $\approx 5.0$), creating a discernible
+  but not overwhelming effect.
 
 **Risk calculation:**
 
 $Risk_{CVD} = \frac{1}{1 + e^{-CVD_{\text{logit}}}}$
 
-**Note:** The non-HDL value in mmol/L is additionally clipped to [2.0, 6.0] before substitution into the formula, in accordance with Section 8.3.
+**Note:** The non-HDL value in mmol/L is additionally clipped to [2.0, 6.0] before substitution into the formula, in
+accordance with Section 8.3.
 
 ### 3.2 Type 2 Diabetes (FINDRISC-like model)
 
 **Point system:**
 
-| Factor                                      | Points |
-|---------------------------------------------|--------|
-| Age &gt; 45 years                           | 2      |
-| BMI 25-29.9                                 | 1      |
-| BMI ≥ 30                                    | +2     |
-| HbA1c 5.7-6.4%                              | 3      |
-| HbA1c ≥ 6.5%                                | +5     |
-| Smoking                                     | 2      |
-| Low fiber intake (&lt;20g/day)              | 1      |
-| KBJU imbalance &gt; 20 units                | 2      |
-| Muscle mass &lt; 5 units                    | 1      |
-| Sleep deficit (&lt;6 hours)                 | 2      |
-| Diabetes genetic risk &gt; 1.5              | 3      |
+| Factor                         | Points |
+|--------------------------------|--------|
+| Age &gt; 45 years              | 2      |
+| BMI 25-29.9                    | 1      |
+| BMI ≥ 30                       | +2     |
+| HbA1c 5.7-6.4%                 | 3      |
+| HbA1c ≥ 6.5%                   | +5     |
+| Smoking                        | 2      |
+| Low fiber intake (&lt;20g/day) | 1      |
+| KBJU imbalance &gt; 20 units   | 2      |
+| Muscle mass &lt; 5 units       | 1      |
+| Sleep deficit (&lt;6 hours)    | 2      |
+| Diabetes genetic risk &gt; 1.5 | 3      |
 
 **Risk calculation formula:**
 
 $$Risk_{Diabetes} = \frac{1}{1 + e^{-0.4 \times (\text{TotalScore} - \text{threshold})}}$$
 
-where `threshold` is a calibration parameter allowing adjustment of overall diabetes prevalence in the synthetic population. The default value (`threshold = 18.7`) ensures diabetes prevalence of approximately 15% over the 20-year period, consistent with target metrics for ML tasks.
+where `threshold` is a calibration parameter allowing adjustment of overall diabetes prevalence in the synthetic
+population. The default value (`threshold = 18.7`) ensures diabetes prevalence of approximately 15% over the 20-year
+period, consistent with target metrics for ML tasks.
 
-*Calibration:* Coefficient 0.4 and threshold value are empirically selected to obtain realistic risk distribution considering additional factors (KBJU, muscle mass, sleep) extending the original FINDRISC scale.
+*Calibration:* Coefficient 0.4 and threshold value are empirically selected to obtain realistic risk distribution
+considering additional factors (KBJU, muscle mass, sleep) extending the original FINDRISC scale.
 
 ### 3.3 Additional Risk Models (Extension)
 
@@ -332,7 +373,8 @@ $$\text{logit} = 0.4 \times \ln(Alcohol+1) + 0.2 \times Smoking + 0.3 \times [BM
 
 *Notes:*
 
-- These models are **theoretical assumptions** for dataset enrichment. Coefficients are not calibrated against epidemiological data, unlike SCORE2 and FINDRISC.
+- These models are **theoretical assumptions** for dataset enrichment. Coefficients are not calibrated against
+  epidemiological data, unlike SCORE2 and FINDRISC.
 - Separate genetic risk for obesity is not implemented, as obesity is modeled through dynamic BMI and lifestyle factors.
 
 ### 3.4 Polygenic Risks
@@ -362,9 +404,11 @@ where $\text{AverageRisk}$ is the population average risk calculated at mean all
 
 - CVD: $\text{GeneticRisk}_{\text{CVD}} \sim \text{Lognormal}(0, 0.4^2)$, truncated [0.5, 2.0]
 - Diabetes: $\text{GeneticRisk}_{\text{Diabetes}} \sim \text{Lognormal}(0, 0.3^2)$, truncated [0.5, 2.0]
-- Obesity: Not modeled separately — accounted for through BMI, muscle mass, and genetic risks of comorbid conditions (NAFLD, type 2 diabetes)
+- Obesity: Not modeled separately — accounted for through BMI, muscle mass, and genetic risks of comorbid conditions (
+  NAFLD, type 2 diabetes)
 
-*Note:* The code uses simplified lognormal generation without explicit modeling of individual SNPs. This corresponds to the target balance between complexity and variability for ML training.
+*Note:* The code uses simplified lognormal generation without explicit modeling of individual SNPs. This corresponds to
+the target balance between complexity and variability for ML training.
 
 ---
 
@@ -385,28 +429,32 @@ where:
 
 **Specific OU process parameters used in code:**
 
-| Factor    | $\theta$ | $\sigma$ | Min | Max  |
-|-----------|----------|----------|-----|------|
-| Alcohol   | 0.2      | 0.2      | 0   | 500  |
-| Cardio    | 0.2      | 0.2      | 0   | 3000 |
-| Strength  | 0.25     | 0.25     | 0   | 1500 |
-| Smoking   | 0.3      | 0.3      | 0   | 40   |
-| Stress    | 0.2      | 1.0      | 0   | 10   |
-| Sleep     | 0.2      | 0.8      | 4   | 10   |
+| Factor   | $\theta$ | $\sigma$ | Min | Max  |
+|----------|----------|----------|-----|------|
+| Alcohol  | 0.2      | 0.2      | 0   | 500  |
+| Cardio   | 0.2      | 0.2      | 0   | 3000 |
+| Strength | 0.25     | 0.25     | 0   | 1500 |
+| Smoking  | 0.3      | 0.3      | 0   | 40   |
+| Stress   | 0.2      | 1.0      | 0   | 10   |
+| Sleep    | 0.2      | 0.8      | 4   | 10   |
 
 ### 4.2 Seasonal and Random Events
 
-**Note:** Seasonal variations are **not implemented in code** (deliberate simplification). With annual discretization of the model, seasonal variations are averaged and do not significantly affect long-term trajectories. OU processes (Section 4.1) provide sufficient variability without explicit seasonal modeling.
+**Note:** Seasonal variations are **not implemented in code** (deliberate simplification). With annual discretization of
+the model, seasonal variations are averaged and do not significantly affect long-term trajectories. OU processes (
+Section 4.1) provide sufficient variability without explicit seasonal modeling.
 
 **Random stressful events:**
 
-**Probability of a stressful event in any given year is 0.4 (on average once every 2.5 years).** Events (divorce, job loss, illness) affect:
+**Probability of a stressful event in any given year is 0.4 (on average once every 2.5 years).** Events (divorce, job
+loss, illness) affect:
 
 - Stress level: +3 points for **1 year with decay** (+1.5 the following year)
 - Sleep quality: -1 hour for 1 year
 - Alcohol consumption: +20% for 1 year
 
-*Simplification:* Duration increased from 6 months (initial specification) to 1 year with decay to correspond with annual model discretization.
+*Simplification:* Duration increased from 6 months (initial specification) to 1 year with decay to correspond with
+annual model discretization.
 
 ---
 
@@ -414,32 +462,32 @@ where:
 
 ### Table 1: Coefficients Affecting BMI
 
-| Source                | Value                          | Description                            |
-|-----------------------|--------------------------------|----------------------------------------|
-| Hall et al., 2011     | 0.129 kg/m² per 1000 kcal      | Caloric surplus                        |
-| Age factor            | 0.01 kg/m² per year            | Natural metabolic slowing              |
-| Physical activity     | -0.001 kg/m² per 1000 MET-min  | Exercise effect                        |
-| Strength training     | -0.05 kg/m² per 3 sessions     | Muscle mass gain                       |
+| Source            | Value                         | Description               |
+|-------------------|-------------------------------|---------------------------|
+| Hall et al., 2011 | 0.129 kg/m² per 1000 kcal     | Caloric surplus           |
+| Age factor        | 0.01 kg/m² per year           | Natural metabolic slowing |
+| Physical activity | -0.001 kg/m² per 1000 MET-min | Exercise effect           |
+| Strength training | -0.05 kg/m² per 3 sessions    | Muscle mass gain          |
 
 ### Table 2: Coefficients Affecting HDL
 
-| Factor                | Coefficient | Unit of measurement                    | Source                  |
-|-----------------------|-------------|----------------------------------------|-------------------------|
-| Cardio activity       | +0.2        | mg/dL per 1000 MET-minutes             | Kodama et al., 2007     |
-| Strength training     | +0.3        | mg/dL per 450 MET-minutes (≈3 sessions)| Theoretical assumption  |
-| Saturated fats        | -0.05       | mg/dL per 1 percentage point           | Mensink et al., 2003    |
-| Fiber                 | +0.1        | mg/dL per 1g                           | Brown et al., 1999      |
-| Muscle mass           | +0.05       | mg/dL per 1 index unit                 | Theoretical assumption  |
+| Factor            | Coefficient | Unit of measurement                     | Source                 |
+|-------------------|-------------|-----------------------------------------|------------------------|
+| Cardio activity   | +0.2        | mg/dL per 1000 MET-minutes              | Kodama et al., 2007    |
+| Strength training | +0.3        | mg/dL per 450 MET-minutes (≈3 sessions) | Theoretical assumption |
+| Saturated fats    | -0.05       | mg/dL per 1 percentage point            | Mensink et al., 2003   |
+| Fiber             | +0.1        | mg/dL per 1g                            | Brown et al., 1999     |
+| Muscle mass       | +0.05       | mg/dL per 1 index unit                  | Theoretical assumption |
 
 ### Table 3: Coefficients Affecting SBP (Calibrated)
 
-| Factor                | Coefficient | Unit of measurement      | Source                    | Note                           |
-|-----------------------|-------------|--------------------------|---------------------------|--------------------------------|
-| BMI                   | +0.7        | mmHg per 1 kg/m²         | INTERSALT Study           | —                              |
-| Alcohol (chronic)     | **+0.03**   | mmHg per 1 g/day         | Xin et al., 2001 (Adj.)   | *Calibrated: original ~0.1*    |
-| Sodium                | **+0.25**   | mmHg per 100 mg          | He et al., 2013 (Adj.)    | *Calibrated: original ~0.5-1.0*|
-| Sleep deficit         | +0.5        | mmHg per hour            | Theoretical assumption    | —                              |
-| Stress                | +0.5        | mmHg per 1 level         | Everson-Rose et al., 2004 | —                              |
+| Factor            | Coefficient | Unit of measurement | Source                    | Note                            |
+|-------------------|-------------|---------------------|---------------------------|---------------------------------|
+| BMI               | +0.7        | mmHg per 1 kg/m²    | INTERSALT Study           | —                               |
+| Alcohol (chronic) | **+0.03**   | mmHg per 1 g/day    | Xin et al., 2001 (Adj.)   | *Calibrated: original ~0.1*     |
+| Sodium            | **+0.25**   | mmHg per 100 mg     | He et al., 2013 (Adj.)    | *Calibrated: original ~0.5-1.0* |
+| Sleep deficit     | +0.5        | mmHg per hour       | Theoretical assumption    | —                               |
+| Stress            | +0.5        | mmHg per 1 level    | Everson-Rose et al., 2004 | —                               |
 
 ---
 
@@ -447,15 +495,15 @@ where:
 
 ### Table 4: Diagnostic Criteria
 
-| Parameter                  | Normal                 | Prediabetes/Borderline   | Pathology          | Source |
-|---------------------------|------------------------|--------------------------|--------------------|--------|
-| BMI (kg/m²)               | 18.5-24.9              | 25.0-29.9 (overweight)   | ≥30 (obesity)      | WHO    |
-| HDL (mg/dL)               | &gt;40 (M), &gt;50 (F) | 40-60 (borderline)       | &lt;40 (low)       | ATP III|
-| Total cholesterol (mg/dL) | &lt;200                | 200-239 (borderline)     | ≥240 (high)        | ATP III|
-| Non-HDL (mmol/L)          | &lt;3.5                | 3.5-4.5 (elevated)       | ≥4.5 (high)        | SCORE2 |
-| SBP (mmHg)                | &lt;120                | 120-129 (elevated)       | ≥130 (hypertension)| AHA/ACC|
-| HbA1c (%)                 | &lt;5.7                | 5.7-6.4 (prediabetes)    | ≥6.5 (diabetes)    | ADA    |
-| KBJU imbalance index      | &lt;10                 | 10-20 (moderate)         | &gt;20 (high)      | Model  |
+| Parameter                 | Normal                 | Prediabetes/Borderline | Pathology           | Source  |
+|---------------------------|------------------------|------------------------|---------------------|---------|
+| BMI (kg/m²)               | 18.5-24.9              | 25.0-29.9 (overweight) | ≥30 (obesity)       | WHO     |
+| HDL (mg/dL)               | &gt;40 (M), &gt;50 (F) | 40-60 (borderline)     | &lt;40 (low)        | ATP III |
+| Total cholesterol (mg/dL) | &lt;200                | 200-239 (borderline)   | ≥240 (high)         | ATP III |
+| Non-HDL (mmol/L)          | &lt;3.5                | 3.5-4.5 (elevated)     | ≥4.5 (high)         | SCORE2  |
+| SBP (mmHg)                | &lt;120                | 120-129 (elevated)     | ≥130 (hypertension) | AHA/ACC |
+| HbA1c (%)                 | &lt;5.7                | 5.7-6.4 (prediabetes)  | ≥6.5 (diabetes)     | ADA     |
+| KBJU imbalance index      | &lt;10                 | 10-20 (moderate)       | &gt;20 (high)       | Model   |
 
 ---
 
@@ -490,10 +538,13 @@ For each synthetic patient:
 
 ### 7.4 Implementation Requirements in Code (Python)
 
-1. **Class balance:** It is necessary to control the distribution of the target variable (`Has_Disease_20y`). If imbalance &gt;80/20, use balancing techniques or adjust risk thresholds.
+1. **Class balance:** It is necessary to control the distribution of the target variable (`Has_Disease_20y`). If
+   imbalance &gt;80/20, use balancing techniques or adjust risk thresholds.
     - *Code comment:* `# TODO: Check class balance distribution here`
 
-2. **Missing data (MAR):** To simulate real medical data, generate missing values (NaN) via MAR (Missing At Random) mechanism: probability of missing depends on age (younger less frequently tested) and disease risk (patients with high `Risk_CVD` more frequently under observation). Formula:
+2. **Missing data (MAR):** To simulate real medical data, generate missing values (NaN) via MAR (Missing At Random)
+   mechanism: probability of missing depends on age (younger less frequently tested) and disease risk (patients with
+   high `Risk_CVD` more frequently under observation). Formula:
    `p_missing = 0.05 + 0.1 * (age &lt; 30) - 0.05 * (Risk_CVD &gt; 0.2)`, constrained [0.02, 0.15].
    ***In code, final observation age (`age_end`) is used as age, and final risk (`cvd_risk_10year`) is taken.***
     - *Code comment:* `# TODO: Implement MAR missing value simulation (2-15% NaN)`
@@ -515,7 +566,8 @@ For each synthetic patient:
     - *Code comment:*
       `# INTENTIONALLY CALIBRATED: Diabetes threshold is a tunable parameter to achieve desired class balance; default value 18.7 yields ~15% diabetes prevalence.`
 
-5. **Hard clipping:** All biomarkers must be constrained to ranges from Section 8.3. Clipping is applied after noise addition.
+5. **Hard clipping:** All biomarkers must be constrained to ranges from Section 8.3. Clipping is applied after noise
+   addition.
     - *Code comment:* `# TODO: Implement hard clipping for all biomarkers`
 
 ---
@@ -537,11 +589,16 @@ For each synthetic patient:
 
 1. **Muscle mass effect** on BMR, HDL, and HbA1c — theoretical coefficients, not confirmed by large meta-analyses
 2. **Sleep effect** on SBP and HbA1c — based on associative studies, mechanistic link simplified
-3. **KBJU imbalance index** — original model metric, not validated in clinical studies; normalization (×10, constraint 100) is a technical solution
-4. **Effect of strength training on HDL** — coefficient +0.3 mg/dL is a theoretical assumption, calibrated through 450 MET-minutes
-5. **Polygenic risk model** — simplified representation of real disease polygenic architecture (lognormal distribution instead of explicit SNP modeling)
-6. **Absence of seasonality** — annual model discretization makes seasonal variations insignificant; variability is provided by OU processes
-7. **Additional risk models** (stroke, NAFLD, cancer, cirrhosis) — theoretical assumptions for ML training, not calibrated against epidemiological data
+3. **KBJU imbalance index** — original model metric, not validated in clinical studies; normalization (×10, constraint
+   100) is a technical solution
+4. **Effect of strength training on HDL** — coefficient +0.3 mg/dL is a theoretical assumption, calibrated through 450
+   MET-minutes
+5. **Polygenic risk model** — simplified representation of real disease polygenic architecture (lognormal distribution
+   instead of explicit SNP modeling)
+6. **Absence of seasonality** — annual model discretization makes seasonal variations insignificant; variability is
+   provided by OU processes
+7. **Additional risk models** (stroke, NAFLD, cancer, cirrhosis) — theoretical assumptions for ML training, not
+   calibrated against epidemiological data
 8. **Simplified body composition model** — bone and organ mass assumed constant (see Section 1.3.3)
 
 ### 8.3 Validity Ranges
@@ -550,7 +607,9 @@ For each synthetic patient:
 - BMI: 16-50 kg/m²
 - HDL: 20-100 mg/dL
 - Total cholesterol: 150-350 mg/dL
-- Non-HDL: **in mg/dL: 50–232; in mmol/L: 2.0–6.0**. After calculating non-HDL (mg/dL) = TC - HDL, clipping [50, 232] is applied. The resulting value is divided by 38.67 and clipped again to [2.0, 6.0] mmol/L (this may lead to inconsistency with the lower bound in mg/dL, which is a deliberate simplification).
+- Non-HDL: **in mg/dL: 50–232; in mmol/L: 2.0–6.0**. After calculating non-HDL (mg/dL) = TC - HDL, clipping [50, 232] is
+  applied. The resulting value is divided by 38.67 and clipped again to [2.0, 6.0] mmol/L (this may lead to
+  inconsistency with the lower bound in mg/dL, which is a deliberate simplification).
 - SBP: 80-200 mmHg
 - **HbA1c: 3.5-12%** (hard clip, values &gt;12% excluded as incompatible with life)
 - KBJU imbalance: 0-100 units (normalized scale)
@@ -573,13 +632,13 @@ For each synthetic patient:
 
 Coefficients and models are calibrated against large epidemiological studies:
 
-| Study                    | Country        | n participants | Observation period | Parameters used                         |
-|--------------------------|----------------|----------------|--------------------|-----------------------------------------|
-| Framingham Heart Study   | USA            | 14,000+        | 1948-present       | CVD risks, SCORE2 model                 |
-| NHANES                   | USA            | 75,000+        | 1960-present       | Biomarker distributions                 |
-| EPIC-Norfolk             | United Kingdom | 30,000+        | 1993-present       | Diet-risk associations                  |
-| FINDRISC                 | Finland        | 4,500+         | 1987-2002          | Type 2 diabetes risk model              |
-| INTERSALT Study          | International  | 10,000+        | 1984-1988          | Sodium effect on blood pressure         |
+| Study                  | Country        | n participants | Observation period | Parameters used                 |
+|------------------------|----------------|----------------|--------------------|---------------------------------|
+| Framingham Heart Study | USA            | 14,000+        | 1948-present       | CVD risks, SCORE2 model         |
+| NHANES                 | USA            | 75,000+        | 1960-present       | Biomarker distributions         |
+| EPIC-Norfolk           | United Kingdom | 30,000+        | 1993-present       | Diet-risk associations          |
+| FINDRISC               | Finland        | 4,500+         | 1987-2002          | Type 2 diabetes risk model      |
+| INTERSALT Study        | International  | 10,000+        | 1984-1988          | Sodium effect on blood pressure |
 
 ### 9.2 SCORE2 Model Validation
 
@@ -594,7 +653,8 @@ The simplified SCORE2 logistic model was validated on synthetic data:
 **Biomarker distributions correspond to real populations:**
 
 - HDL: $\mathcal{N}(50 \text{ (M)}, 10^2)$ mg/dL, $\mathcal{N}(60 \text{ (F)}, 12^2)$ mg/dL
-- Total cholesterol: $\mathcal{N}(200, 25^2)$ mg/dL, **with additional genetic contribution $+0.8 \times \text{GeneticRisk}_{\text{CVD}}$ (baseline level only)**
+- Total cholesterol: $\mathcal{N}(200, 25^2)$ mg/dL, **with additional genetic
+  contribution $+0.8 \times \text{GeneticRisk}_{\text{CVD}}$ (baseline level only)**
 - Non-HDL: $\mathcal{N}(3.8, 0.8^2)$ mmol/L
 - SBP: $\mathcal{N}(120 + 0.5 \times (\text{age}-35), 8^2)$ mmHg
 - HbA1c: $\mathcal{N}(5.4, 0.3^2)$% (truncated at 12%)
@@ -668,7 +728,8 @@ Normalized value: $KBJU\_Imbalance = \min(100, 14.14 \times 10) = 141.4 \rightar
 
 Contribution to HbA1c: $100 \times 0.002 = 0.2\%$
 
-*Note:* The code uses a normalized 0-100 scale, therefore for moderate imbalance (raw=14.14, norm=100 due to constraint) the contribution is 0.2%.
+*Note:* The code uses a normalized 0-100 scale, therefore for moderate imbalance (raw=14.14, norm=100 due to constraint)
+the contribution is 0.2%.
 
 **Example 4: CVD Risk Calculation Using Simplified SCORE2 Model (With calibrated intercept -3.8)**
 
@@ -694,7 +755,9 @@ $Risk_{CVD} = \frac{1}{1 + e^{-(-1.21)}} = \frac{1}{1 + e^{1.21}} \approx 0.230$
 
 ## 11. Conclusion
 
-The presented model represents a compromise between scientific accuracy and computational efficiency. It is based on contemporary epidemiological data and clinical guidelines, with coefficient calibration to ensure feature balance in ML models.
+The presented model represents a compromise between scientific accuracy and computational efficiency. It is based on
+contemporary epidemiological data and clinical guidelines, with coefficient calibration to ensure feature balance in ML
+models.
 
 **Key advantages:**
 
@@ -713,29 +776,42 @@ The presented model represents a compromise between scientific accuracy and comp
 - **Simplified body composition model:** Explicitly documented assumption of constant bone/organ mass
 
 **Main limitation:**
-The synthetic nature of data requires caution when extrapolating conclusions to real clinical situations. The model does not replace real clinical trials.
+The synthetic nature of data requires caution when extrapolating conclusions to real clinical situations. The model does
+not replace real clinical trials.
 
-**Disclaimer**: All formulas and coefficients are based on published scientific research with simplifications and calibration specifically made for generating synthetic data for ML model training. The model is intended for ML research and educational tasks and does not replace clinical assessment.
+**Disclaimer**: All formulas and coefficients are based on published scientific research with simplifications and
+calibration specifically made for generating synthetic data for ML model training. The model is intended for ML research
+and educational tasks and does not replace clinical assessment.
 
 ---
 
 ## 12. References
 
 1. Hall, K. D., et al. (2011). "Quantification of the effect of energy imbalance on bodyweight." The Lancet
-2. Mifflin, M. D., et al. (1990). "A new predictive equation for resting energy expenditure in healthy individuals." The American Journal of Clinical Nutrition
-3. Mensink, R. P., et al. (2003). "Effects of dietary fatty acids and carbohydrates on the ratio of serum total to HDL cholesterol." The American Journal of Clinical Nutrition
+2. Mifflin, M. D., et al. (1990). "A new predictive equation for resting energy expenditure in healthy individuals." The
+   American Journal of Clinical Nutrition
+3. Mensink, R. P., et al. (2003). "Effects of dietary fatty acids and carbohydrates on the ratio of serum total to HDL
+   cholesterol." The American Journal of Clinical Nutrition
 4. Clarke, R., et al. (1997). "Dietary lipids and blood cholesterol." American Journal of Clinical Nutrition
-5. He, F. J., et al. (2013). "Effect of longer term modest salt reduction on blood pressure." Cochrane Database of Systematic Reviews
+5. He, F. J., et al. (2013). "Effect of longer term modest salt reduction on blood pressure." Cochrane Database of
+   Systematic Reviews
 6. Lindström, J., et al. (2003). "The Finnish Diabetes Risk Score (FINDRISC)." Diabetes Care
-7. Xin, X., et al. (2001). "Effects of alcohol reduction on blood pressure: a meta-analysis of randomized controlled trials." Hypertension
+7. Xin, X., et al. (2001). "Effects of alcohol reduction on blood pressure: a meta-analysis of randomized controlled
+   trials." Hypertension
 8. Everson-Rose, S. A., et al. (2004). "Stress, coping, and blood pressure." Current Hypertension Reports
 9. Brown, L., et al. (1999). "Cholesterol-lowering effects of dietary fiber." New England Journal of Medicine
-10. Kodama, S., et al. (2007). "Effect of aerobic exercise training on serum levels of high-density lipoprotein cholesterol." Archives of Internal Medicine
+10. Kodama, S., et al. (2007). "Effect of aerobic exercise training on serum levels of high-density lipoprotein
+    cholesterol." Archives of Internal Medicine
 11. Brand-Miller, J. C., et al. (2009). "Glycemic index, postprandial glycemia." American Journal of Clinical Nutrition
-12. Abdullah, A., et al. (2010). "The magnitude of association between overweight and obesity and the risk of diabetes." Diabetes Care
-13. Weickert, M. O., et al. (2006). "Cereal fiber improves whole-body insulin sensitivity in overweight and obese women." Diabetes Care
+12. Abdullah, A., et al. (2010). "The magnitude of association between overweight and obesity and the risk of diabetes."
+    Diabetes Care
+13. Weickert, M. O., et al. (2006). "Cereal fiber improves whole-body insulin sensitivity in overweight and obese
+    women." Diabetes Care
 14. Boule, N. G., et al. (2001). "Effects of exercise on glycemic control in type 2 diabetes mellitus." JAMA
 15. Hindy, G., et al. (2020). "Polygenic background for cholesterol risk and cardiovascular disease." Circulation
-16. SCORE2 working group and ESC Cardiovascular risk collaboration. (2021). "SCORE2 risk prediction algorithms: new models to estimate 10-year risk of cardiovascular disease in Europe." European Heart Journal
+16. SCORE2 working group and ESC Cardiovascular risk collaboration. (2021). "SCORE2 risk prediction algorithms: new
+    models to estimate 10-year risk of cardiovascular disease in Europe." European Heart Journal
 
-*Note: All formulas and coefficients are based on published scientific research with simplifications and calibration for educational purposes. The model is intended for ML research and educational tasks and does not replace clinical assessment.*
+*Note: All formulas and coefficients are based on published scientific research with simplifications and calibration for
+educational purposes. The model is intended for ML research and educational tasks and does not replace clinical
+assessment.*

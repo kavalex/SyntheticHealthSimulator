@@ -1,5 +1,8 @@
 # SyntheticHealthSimulator
 
+[![en](https://img.shields.io/badge/lang-en-red.svg)](README.md)
+[![ru](https://img.shields.io/badge/lang-ru-blue.svg)](README_ru.md)
+
 **Генератор синтетических медицинских данных для задач машинного обучения**
 
 [![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/yourusername/SyntheticHealthSimulator/releases)
