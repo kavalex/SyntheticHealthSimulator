@@ -15,6 +15,7 @@ from typing import Dict, List, Optional, Union
 from urllib.request import urlopen
 
 import pandas as pd
+import numpy as np
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
@@ -751,6 +752,16 @@ class DatasetValidator:
         return errors == 0
 
     def export_report(self, filepath: str):
+
+        def default_serializer(obj):
+            if isinstance(obj, (np.bool_, bool)):
+                return bool(obj)
+            if isinstance(obj, (np.integer, np.floating)):
+                return obj.item()
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
         report = {
             "timestamp": pd.Timestamp.now().isoformat(),
             "source": str(self.data_path) if self.data_path else f"github:{self.github_repo}:{self.version}",
@@ -773,7 +784,7 @@ class DatasetValidator:
             ],
         }
         with open(filepath, "w", encoding="utf-8") as f:
-            json.dump(report, f, indent=2, ensure_ascii=False)
+            json.dump(report, f, indent=2, ensure_ascii=False, default=default_serializer)
         print(f"\nReport saved: {filepath}")
 
 
