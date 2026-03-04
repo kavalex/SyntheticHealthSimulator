@@ -87,13 +87,13 @@ python generator.py
 Для валидации локально сгенерированного набора данных:
 
 ```bash
-python validator.py --local data/synthetic_v1.0.2
+python validator.py --local data/synthetic_v1.1.1
 ```
 
 Вы также можете проверить набор данных прямо из GitHub-релиза:
 
 ```bash
-python validator.py --github kavalex/SyntheticHealthSimulator --version v1.0.2
+python validator.py --github kavalex/SyntheticHealthSimulator --version v1.1.1
 ```
 
 Флаг `--report report.json` сохраняет подробный отчёт в формате JSON.

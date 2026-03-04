@@ -87,13 +87,13 @@ The repository includes a built‑in validator (`validator.py`) to ensure that t
 To validate a locally generated dataset:
 
 ```bash
-python validator.py --local data/synthetic_v1.0.2
+python validator.py --local data/synthetic_v1.1.1
 ```
 
 You can also validate a dataset directly from a GitHub release:
 
 ```bash
-python validator.py --github kavalex/SyntheticHealthSimulator --version v1.0.2
+python validator.py --github kavalex/SyntheticHealthSimulator --version v1.1.1
 ```
 
 An optional `--report report.json` flag saves a detailed JSON report.

@@ -756,7 +756,7 @@ wheels = [
 
 [[package]]
 name = "synthetichealthsimulator"
-version = "1.0.2"
+version = "1.1.1"
 source = { virtual = "." }
 dependencies = [
     { name = "ipykernel" },
