@@ -71,6 +71,43 @@ After completion, five CSV files (and corresponding JSON metadata files) will be
 
 ---
 
+## Dataset Validation
+
+The repository includes a built‑in validator (`validator.py`) to ensure that the generated data meets the expected statistical properties, physiological ranges, and correlations defined in the [scientific reference](SCIENTIFIC_REFERENCE.md). The validator checks:
+
+- File completeness and structure
+- Demographic distributions (age, sex, height)
+- Genetic risk distributions
+- Biomarker ranges and hard clipping
+- Temporal trends (e.g., HDL decrease, HbA1c increase)
+- Disease prevalence and risk‑outcome correlations
+- Missing‑at‑random (MAR) patterns
+- Cross‑dataset consistency (person IDs, BMI)
+
+To validate a locally generated dataset:
+
+```bash
+python validator.py --local data/synthetic_v1.0.2
+```
+
+You can also validate a dataset directly from a GitHub release:
+
+```bash
+python validator.py --github kavalex/SyntheticHealthSimulator --version v1.0.2
+```
+
+An optional `--report report.json` flag saves a detailed JSON report.
+
+If all checks pass, you will see:
+
+```
+ALL CHECKS PASSED SUCCESSFULLY!
+```
+
+Otherwise, warnings or errors will be displayed with details.
+
+---
+
 ## Structure of Generated Data
 
 All files except the aggregated one have a panel structure: one row or set of indicators is stored for each patient and year of observation. Below are the columns for each file.

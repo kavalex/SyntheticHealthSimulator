@@ -5,7 +5,7 @@
 
 **Генератор синтетических медицинских данных для задач машинного обучения**
 
-[![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/yourusername/SyntheticHealthSimulator/releases)
+[![Version 1.0.2](https://img.shields.io/badge/version-1.0.2-blue.svg)](https://github.com/yourusername/SyntheticHealthSimulator/releases)
 [![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
 [![License: CC0-1.0](https://img.shields.io/badge/License-CC0_1.0-lightgrey.svg)](http://creativecommons.org/publicdomain/zero/1.0/)
 
@@ -30,31 +30,31 @@
 - историю образа жизни (питание, физическая активность, курение, сон, стресс);
 - ежегодно измеряемые биомаркеры (вес, давление, холестерин, HbA1c).
 
-На основе этих данных рассчитываются риски развития различных заболеваний (сердечно-сосудистые, диабет 2 типа, инсульт, НАЖБ, колоректальный рак, цирроз) и моделируются исходы.
+На основе этих данных рассчитываются риски развития различных заболеваний (сердечно-сосудистые заболевания, диабет 2 типа, инсульт, НАЖБП, колоректальный рак, цирроз) и моделируются исходы.
 
-Основное назначение — создание качественных датасетов для обучения моделей прогнозирования, исследования влияния факторов образа жизни и тестирования алгоритмов обработки пропущенных данных.
+Основная цель — создание качественных наборов данных для обучения моделей прогнозирования, исследования влияния факторов образа жизни и тестирования алгоритмов обработки пропущенных данных.
 
 ---
 
 ## Установка и зависимости
 
-Проект написан на **Python 3.14+** и использует стандартные библиотеки: `numpy`, `pandas`.
+Для работы требуется **Python версии 3.14 или выше**. Все необходимые зависимости перечислены в файле `pyproject.toml`. Вы можете установить их с помощью `uv` (рекомендуется) или `pip`.
 
 ```bash
-# Установка зависимостей (если используется pip)
-pip install numpy pandas
+# Установка uv, если он ещё не установлен
+pip install uv
 
-# Или с помощью uv (рекомендуется)
+# Синхронизация зависимостей
 uv sync
 ```
 
-После установки склонируйте репозиторий или скопируйте файл `generator.py`.
+После установки зависимостей клонируйте репозиторий или скопируйте файл `generator.py`.
 
 ---
 
 ## Использование
 
-Базовый запуск генерации данных (5000 человек, 20 лет наблюдения):
+Базовая генерация данных (5000 человек, 20 лет наблюдения):
 
 ```bash
 python generator.py
@@ -65,9 +65,46 @@ python generator.py
 - `N_PEOPLE` — количество синтетических пациентов.
 - `YEARS` — период наблюдения (лет).
 - `seed` — случайное зерно для воспроизводимости.
-- `diabetes_threshold` — порог калибровки риска диабета (по умолчанию 18.7, обеспечивает prevalence ~15%).
+- `diabetes_threshold` — порог калибровки риска диабета (по умолчанию 18.7, даёт распространённость ~15%).
 
-После завершения работы в папке `data/synthetic` будут созданы пять CSV-файлов (и соответствующие JSON-файлы с метаданными).
+После завершения в папке `data/synthetic` будут созданы пять CSV-файлов (и соответствующие JSON-файлы с метаданными).
+
+---
+
+## Валидация набора данных
+
+Репозиторий содержит встроенный валидатор (`validator.py`), который проверяет, соответствуют ли сгенерированные данные ожидаемым статистическим свойствам, физиологическим диапазонам и корреляциям, определённым в [научном описании](SCIENTIFIC_REFERENCE.md). Валидатор проверяет:
+
+- Полноту и структуру файлов;
+- Демографические распределения (возраст, пол, рост);
+- Распределения генетических рисков;
+- Диапазоны биомаркеров и жёсткое ограничение;
+- Временные тренды (например, снижение HDL, рост HbA1c);
+- Распространённость заболеваний и корреляции риск–исход;
+- Механизм пропусков MAR (Missing at Random);
+- Согласованность между наборами данных (идентификаторы person_id, ИМТ).
+
+Для валидации локально сгенерированного набора данных:
+
+```bash
+python validator.py --local data/synthetic_v1.0.2
+```
+
+Вы также можете проверить набор данных прямо из GitHub-релиза:
+
+```bash
+python validator.py --github kavalex/SyntheticHealthSimulator --version v1.0.2
+```
+
+Флаг `--report report.json` сохраняет подробный отчёт в формате JSON.
+
+Если все проверки пройдены, вы увидите:
+
+```
+ALL CHECKS PASSED SUCCESSFULLY!
+```
+
+В противном случае будут показаны предупреждения или ошибки с подробностями.
 
 ---
 
@@ -85,11 +122,11 @@ python generator.py
 - **Начальные биомаркеры**: `initial_hdl_mgdl`, `initial_total_cholesterol_mgdl`, `initial_sbp_mmhg`, `initial_hba1c_percent`
 
 ### 2. История образа жизни (`02_lifestyle_history.csv`)
-Для каждого пациента и каждого года фиксируются показатели образа жизни и расчётные параметры.
+Для каждого пациента и каждого года записываются показатели образа жизни и расчётные параметры.
 
 - **Идентификатор, год, возраст**: `person_id`, `year`, `age`
-- **Физические показатели (истинные, без шума)**: `weight_kg_true`, `muscle_mass_factor_true`, `bmr_kcal_true`, `tdee_kcal_true`
-- **Питание**: `protein_pct`, `fat_pct`, `carb_pct`, `saturated_fat_pct`, `simple_carbs_pct`, `fiber_g_day`, `sodium_mg_day`, `kbju_imbalance`, `simple_carbs_g`
+- **Физические показатели (истинные значения, без шума)**: `weight_kg_true`, `muscle_mass_factor_true`, `bmr_kcal_true`, `tdee_kcal_true`
+- **Питание**: `protein_pct`, `fat_pct`, `carb_pct`, `saturated_fat_pct`, `simple_carbs_pct`, `fiber_g_day`, `sodium_mg_day`, `macro_imbalance`, `simple_carbs_g`
 - **Образ жизни**: `alcohol_g_per_week`, `cardio_met_minutes`, `strength_met_minutes`, `total_met_minutes`, `cigarettes_per_day`, `stress_level`, `sleep_hours`, `cumulative_smoking`
 
 ### 3. Биомаркеры (`03_biomarkers_history.csv`)
@@ -107,11 +144,11 @@ python generator.py
 - **Исходы**: `has_cvd`, `has_diabetes`, `has_stroke`, `has_nafld`, `has_colorectal`, `has_cirrhosis`
 - **Дополнительно**: `health_score`, `primary_death_cause`, `estimated_event_age`, `sex`
 
-### 5. Агрегированный датасет с пропусками (`05_aggregated_dataset_with_missing.csv`)
-Одна строка на пациента. Содержит усреднённые и стартовые/конечные значения факторов образа жизни, финальные биомаркеры, риски, исходы и синтезированные пропуски (по механизму MAR). Пропуски могут встречаться в колонках: `final_sbp_mmhg`, `final_hdl_mgdl`, `final_total_cholesterol_mgdl`, `final_hba1c_percent`, `avg_alcohol_g_per_week`, `avg_total_met_minutes`.
+### 5. Агрегированный набор данных с пропусками (`05_aggregated_dataset_with_missing.csv`)
+Одна строка на пациента. Содержит усреднённые и стартовые/конечные значения факторов образа жизни, финальные биомаркеры, риски, исходы и синтезированные пропуски (по механизму MAR). Пропуски могут появляться в колонках: `final_sbp_mmhg`, `final_hdl_mgdl`, `final_total_cholesterol_mgdl`, `final_hba1c_percent`, `avg_alcohol_g_per_week`, `avg_total_met_minutes`.
 
 - **Идентификатор и демография**: `person_id`, `sex`, `age_start`, `age_end`
-- **Усреднённые факторы образа жизни**: `avg_alcohol_g_per_week`, `avg_total_met_minutes`, `avg_sleep_hours`, `avg_stress_level`, `avg_fiber_g_day`, `avg_sodium_mg_day`, `avg_saturated_fat_pct`, `avg_simple_carbs_g`, `avg_kbju_imbalance`
+- **Усреднённые факторы образа жизни**: `avg_alcohol_g_per_week`, `avg_total_met_minutes`, `avg_sleep_hours`, `avg_stress_level`, `avg_fiber_g_day`, `avg_sodium_mg_day`, `avg_saturated_fat_pct`, `avg_simple_carbs_g`, `avg_macro_imbalance`
 - **Динамика веса и мышечной массы**: `bmi_start`, `bmi_end`, `bmi_change`, `weight_start_kg`, `weight_end_kg`, `weight_change`, `muscle_mass_factor_start`, `muscle_mass_factor_end`, `muscle_mass_factor_change`
 - **Финальные биомаркеры**: `final_hdl_mgdl`, `final_total_cholesterol_mgdl`, `final_sbp_mmhg`, `final_hba1c_percent`, `final_non_hdl_mmol`
 - **Курение**: `avg_cigarettes_per_day`, `cumulative_smoking_end`
@@ -125,7 +162,7 @@ python generator.py
 
 Все коэффициенты в модели намеренно снижены по сравнению с эпидемиологическими данными, чтобы предотвратить доминирование одного фактора и обеспечить сбалансированное обучение ML-моделей. Ключевой настраиваемый параметр:
 
-- **Порог диабета** (`diabetes_threshold`) — регулирует распространённость диабета. Значение 18.7 даёт ~15% заболеваемости за 20 лет.
+- **Порог диабета** (`diabetes_threshold`) — регулирует распространённость диабета. Значение 18.7 даёт примерно 15% заболеваемости за 20 лет.
 
 Остальные коэффициенты (интерцепт SCORE2, влияние курения, алкоголя, натрия) подробно описаны в [научной справке](SCIENTIFIC_REFERENCE_RU.md).
 
