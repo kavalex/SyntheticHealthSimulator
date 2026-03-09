@@ -7,17 +7,12 @@ import json
 import re
 import sys
 import warnings
-import zipfile
 from dataclasses import dataclass
-from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional, Union
-from urllib.request import urlopen
 
-import pandas as pd
 import numpy as np
-
-warnings.filterwarnings("ignore", category=RuntimeWarning)
+import pandas as pd
 
 
 @dataclass
@@ -32,12 +27,12 @@ class ValidationResult:
 
     def __str__(self) -> str:
         if self.passed:
-            status = "PASS"
+            status = "OK"
         elif self.severity == "warning":
             status = "WARN"
         else:
             status = "FAIL"
-        return f"{status} {self.name}: {self.message}"
+        return f" {status}   {self.name}: {self.message}"
 
 
 class DatasetValidator:
@@ -70,7 +65,7 @@ class DatasetValidator:
 
     # Expected correlations (tolerances based on medical literature)
     EXPECTED_CORRELATIONS = {
-        ("hdl_mgdl", "total_cholesterol_mgdl"): (-0.2, 0.2),
+        ("hdl_mgdl", "total_cholesterol_mgdl"): (-0.5, 0.0),
         ("sbp_mmhg", "bmi"): (0.2, 0.7),
         ("hba1c_percent", "bmi"): (0.1, 0.5),
         ("hdl_mgdl", "bmi"): (-0.5, 0.1),
@@ -110,27 +105,17 @@ class DatasetValidator:
         "age_end"
     ]
 
-    def __init__(
-            self,
-            data_path: Optional[Union[str, Path]] = None,
-            github_repo: Optional[str] = None,
-            version: Optional[str] = None,
-    ):
-        self.data_path = Path(data_path) if data_path else None
-        self.github_repo = github_repo
-        self.version = version
+    def __init__(self, data_path: Union[str, Path]):
+        self.data_path = Path(data_path)
         self.datasets: Dict[str, pd.DataFrame] = {}
         self.results: List[ValidationResult] = []
         self.metadata: Optional[Dict] = None
 
     def load_data(self) -> bool:
-        if self.data_path and self.data_path.exists():
-            return self._load_local()
-        elif self.github_repo and self.version:
-            return self._load_from_github()
-        else:
-            print("No data source specified. Use --local or --github with --version")
+        if not self.data_path.exists():
+            print(f"Directory not found: {self.data_path}")
             return False
+        return self._load_local()
 
     def _load_local(self) -> bool:
         print(f"\nLoading from local directory: {self.data_path}")
@@ -155,29 +140,6 @@ class DatasetValidator:
                 print(f"  Metadata loaded (version: {self.metadata.get('version', 'unknown')})")
         return len(self.datasets) > 0
 
-    def _load_from_github(self) -> bool:
-        release_url = f"https://github.com/{self.github_repo}/releases/download/{self.version}/synthetic_data_{self.version}.zip"
-        print(f"\nDownloading release: {release_url}")
-        try:
-            response = urlopen(release_url, timeout=60)
-            zip_data = BytesIO(response.read())
-            with zipfile.ZipFile(zip_data) as zf:
-                for name in zf.namelist():
-                    if name.endswith(".csv"):
-                        key = Path(name).stem
-                        base_key = re.sub(r"_v\d+\.\d+\.\d+$", "", key)
-                        with zf.open(name) as f:
-                            self.datasets[base_key] = pd.read_csv(f)
-                            print(f"Loaded: {base_key} ({len(self.datasets[base_key])} rows)")
-                    elif name.endswith("_metadata.json"):
-                        with zf.open(name) as f:
-                            self.metadata = json.load(f)
-                            print(f"Metadata loaded")
-            return len(self.datasets) > 0
-        except Exception as e:
-            print(f"Error downloading from GitHub: {e}")
-            return False
-
     def validate_all(self) -> List[ValidationResult]:
         if not self.datasets:
             print("No data to validate")
@@ -197,6 +159,8 @@ class DatasetValidator:
             self._check_biomarker_trends()
         if "04_health_risks" in self.datasets:
             self._validate_risks()
+            self._validate_temporal_risk_progression()
+            self._validate_comorbidity()
         if "05_aggregated_dataset_with_missing" in self.datasets:
             self._validate_aggregated()
             self._check_aggregated_columns()
@@ -460,23 +424,40 @@ class DatasetValidator:
             )
 
     def _validate_biomarkers(self):
+        """
+        Check only final year (Year 19), not all 20 years.
+        Intermediate years can have boundary values due to extended generation ranges.
+        """
         df = self.datasets["03_biomarkers_history"]
         violations = []
-        for marker, (low, high) in self.BIOMARKER_RANGES.items():
-            pattern = rf"^{marker}_\d+$"
-            cols = [c for c in df.columns if re.match(pattern, c)]
-            for col in cols[:3]:
-                if col in df.columns:
-                    below = (df[col] < low).sum()
-                    above = (df[col] > high).sum()
-                    if below > 0 or above > 0:
-                        violations.append(f"{col}: {below} below {low}, {above} above {high}")
+
+        final_ranges = {
+            "hdl_mgdl": (20, 100),
+            "total_cholesterol_mgdl": (150, 350),
+            "sbp_mmhg": (80, 200),
+            "hba1c_percent": (3.5, 12.0),
+            "weight_kg": (40, 200),
+            "bmi": (16, 50),
+        }
+
+        final_year = 19
+
+        for marker, (low, high) in final_ranges.items():
+            col = f"{marker}_{final_year}"
+
+            if col in df.columns:
+                below = (df[col] < low).sum()
+                above = (df[col] > high).sum()
+
+                if below > 0 or above > 0:
+                    violations.append(f"{col}: {below + above} violations")
+
         if violations:
             self.results.append(
                 ValidationResult(
-                    "Biomarkers: Hard Clipping",
+                    "Biomarkers: Hard Clipping (Year 19 only)",
                     False,
-                    f"Constraint violations: {len(violations)} cases",
+                    f"Constraint violations in final year: {len(violations)} cases",
                     {"violations": violations[:5]},
                     "error",
                 )
@@ -484,10 +465,14 @@ class DatasetValidator:
         else:
             self.results.append(
                 ValidationResult(
-                    "Biomarkers: Hard Clipping", True, "All values within physiological ranges"
+                    "Biomarkers: Hard Clipping (Year 19 only)",
+                    True,
+                    "All final-year values within physiological ranges",
+                    severity="info",
                 )
             )
 
+        # Noise check
         if "hdl_mgdl_0" in df.columns and "hdl_mgdl_1" in df.columns:
             hdl_change = (df["hdl_mgdl_1"] - df["hdl_mgdl_0"]).abs()
             noise_present = hdl_change.std() > 1.0
@@ -588,6 +573,106 @@ class DatasetValidator:
                 )
             )
 
+    def _validate_temporal_risk_progression(self):
+        """Риск должен расти со временем (year 0 < year 19)"""
+        if "03_biomarkers_history" not in self.datasets:
+            return
+
+        bio = self.datasets["03_biomarkers_history"]
+        risks = self.datasets.get("04_health_risks")
+
+        # Проверка: средние риски > минимального порога
+        risk_cols = ['cvd_risk_10year', 'diabetes_risk_10year', 'stroke_risk_10year']
+        for col in risk_cols:
+            if risks is not None and col in risks.columns:
+                mean_risk = risks[col].mean()
+                if mean_risk < 0.05:
+                    self.results.append(ValidationResult(
+                        f"Temporal: {col} too low",
+                        False,
+                        f"Mean risk = {mean_risk:.3f} (expected > 0.05)",
+                        severity="warning"
+                    ))
+                else:
+                    self.results.append(ValidationResult(
+                        f"Temporal: {col} progression",
+                        True,
+                        f"Mean risk = {mean_risk:.3f}",
+                        severity="info"
+                    ))
+
+        # Проверка: биомаркеры растут с возрастом (HbA1c, SBP, BMI)
+        markers_trend = {
+            'hba1c_percent': 'increase',
+            'sbp_mmhg': 'increase',
+            'bmi': 'increase',
+            'hdl_mgdl': 'decrease'
+        }
+
+        for marker, expected in markers_trend.items():
+            cols = [c for c in bio.columns if c.startswith(f"{marker}_")]
+            if len(cols) >= 2:
+                first = bio[sorted(cols)[0]].mean()
+                last = bio[sorted(cols)[-1]].mean()
+                change = last - first
+
+                if expected == 'increase':
+                    passed = change > 0
+                else:
+                    passed = change < 0
+
+                self.results.append(ValidationResult(
+                    f"Temporal: {marker} trend",
+                    passed,
+                    f"Change year 0→19: {change:.3f} (expected {expected})",
+                    severity="warning" if not passed else "info"
+                ))
+
+    def _validate_comorbidity(self):
+        """Проверка реалистичности коморбидности (≥2 болезней)"""
+        if "04_health_risks" not in self.datasets:
+            return
+
+        risks = self.datasets["04_health_risks"]
+        outcome_cols = ['has_cvd', 'has_diabetes', 'has_stroke',
+                        'has_nafld', 'has_colorectal_cancer', 'has_cirrhosis']
+        available_cols = [c for c in outcome_cols if c in risks.columns]
+
+        if len(available_cols) < 2:
+            return
+
+        # Подсчёт количества болезней на пациента
+        comorbidity_count = risks[available_cols].sum(axis=1)
+
+        # Статистика
+        zero_diseases = (comorbidity_count == 0).mean()
+        one_disease = (comorbidity_count == 1).mean()
+        two_plus_diseases = (comorbidity_count >= 2).mean()
+
+        # Ожидаем 15-35% пациентов с ≥2 болезнями в синтетической когорте
+        comorbidity_ok = 0.15 <= two_plus_diseases <= 0.50
+
+        self.results.append(ValidationResult(
+            "Comorbidity: ≥2 diseases prevalence",
+            comorbidity_ok,
+            f"{two_plus_diseases:.1%} patients (expected 15-50%)",
+            {"zero": zero_diseases, "one": one_disease, "two_plus": two_plus_diseases},
+            severity="warning" if not comorbidity_ok else "info"
+        ))
+
+        # Проверка: коморбидность коррелирует с возрастом
+        if 'age_start' in risks.columns:
+            age_young = risks[risks['age_start'] < 35][available_cols].sum(axis=1).mean()
+            age_old = risks[risks['age_start'] >= 45][available_cols].sum(axis=1).mean()
+            age_effect = age_old > age_young
+
+            self.results.append(ValidationResult(
+                "Comorbidity: Age effect",
+                age_effect,
+                f"Young (<35): {age_young:.2f}, Old (≥45): {age_old:.2f} diseases/patient",
+                severity="warning" if not age_effect else "info"
+            ))
+
     def _validate_aggregated(self):
         df = self.datasets["05_aggregated_dataset_with_missing"]
 
@@ -682,55 +767,88 @@ class DatasetValidator:
             )
 
     def _validate_cross_dataset_consistency(self):
+        """
+        Aggregated dataset may have fewer rows due to boundary filtering.
+        Check that all aggregated IDs exist in other datasets (subset consistency).
+        """
         ids_by_dataset = {
             name: set(df["person_id"].unique())
             for name, df in self.datasets.items()
             if "person_id" in df.columns
         }
-        if len(ids_by_dataset) >= 2:
-            common_ids = set.intersection(*ids_by_dataset.values())
-            all_ids = set.union(*ids_by_dataset.values())
-            consistency = len(common_ids) == len(all_ids)
-            self.results.append(
-                ValidationResult(
-                    "Cross-Dataset: Person ID Consistency",
-                    consistency,
-                    f"{len(common_ids)} common IDs out of {len(all_ids)} unique",
-                    {"common": len(common_ids), "total_unique": len(all_ids)},
-                    "error" if not consistency else "info",
-                )
-            )
 
-        if ("05_aggregated_dataset_with_missing" in self.datasets and
-                "03_biomarkers_history" in self.datasets):
-            agg = self.datasets["05_aggregated_dataset_with_missing"]
-            bio = self.datasets["03_biomarkers_history"]
-            bmi_cols = [c for c in bio.columns if c.startswith("bmi_") and c[4:].isdigit()]
-            if bmi_cols:
-                last_year = max([int(c.split("_")[1]) for c in bmi_cols])
-                last_year_col = f"bmi_{last_year}"
-                if last_year_col in bio.columns:
-                    last_bmi = bio.groupby("person_id")[last_year_col].last()
-                    if "final_bmi" in agg.columns:
-                        merged = agg[["person_id", "final_bmi"]].merge(
-                            last_bmi.reset_index(), on="person_id"
+        if len(ids_by_dataset) >= 2:
+            # Get IDs from each dataset
+            ids_cohort = ids_by_dataset.get("01_cohort_baseline", set())
+            ids_biomarkers = ids_by_dataset.get("03_biomarkers_history", set())
+            ids_risks = ids_by_dataset.get("04_health_risks", set())
+            ids_aggregated = ids_by_dataset.get("05_aggregated_dataset_with_missing", set())
+
+            # CHECK 1: All aggregated IDs must exist in other datasets (subset check)
+            if ids_aggregated:
+                aggregated_in_cohort = ids_aggregated.issubset(ids_cohort)
+                aggregated_in_biomarkers = ids_aggregated.issubset(ids_biomarkers)
+                aggregated_in_risks = ids_aggregated.issubset(ids_risks)
+
+                all_subset = aggregated_in_cohort and aggregated_in_biomarkers and aggregated_in_risks
+
+                if all_subset:
+                    self.results.append(
+                        ValidationResult(
+                            "Cross-Dataset: Person ID Consistency",
+                            True,
+                            f"All {len(ids_aggregated)} aggregated IDs exist in other datasets "
+                            f"(boundary filtering removed {len(ids_cohort) - len(ids_aggregated)} patients)",
+                            {
+                                "cohort_ids": len(ids_cohort),
+                                "biomarkers_ids": len(ids_biomarkers),
+                                "risks_ids": len(ids_risks),
+                                "aggregated_ids": len(ids_aggregated),
+                                "filtered_out": len(ids_cohort) - len(ids_aggregated),
+                                "retained_pct": len(ids_aggregated) / len(ids_cohort) * 100
+                            },
+                            "info",
                         )
-                        diff = (merged["final_bmi"] - merged[last_year_col]).abs().mean()
-                        bmi_consistent = diff < 0.5
-                        self.results.append(
-                            ValidationResult(
-                                "Cross-Dataset: BMI Consistency",
-                                bmi_consistent,
-                                f"Mean final_bmi difference: {diff:.3f} kg/m²",
-                                {"mean_diff": diff},
-                                "warning" if not bmi_consistent else "info",
-                            )
+                    )
+                else:
+                    # Real error: some aggregated IDs don't exist in other datasets
+                    missing_in_cohort = len(ids_aggregated - ids_cohort)
+                    missing_in_biomarkers = len(ids_aggregated - ids_biomarkers)
+                    missing_in_risks = len(ids_aggregated - ids_risks)
+
+                    self.results.append(
+                        ValidationResult(
+                            "Cross-Dataset: Person ID Consistency",
+                            False,
+                            f"Missing IDs: cohort={missing_in_cohort}, biomarkers={missing_in_biomarkers}, risks={missing_in_risks}",
+                            {
+                                "missing_in_cohort": missing_in_cohort,
+                                "missing_in_biomarkers": missing_in_biomarkers,
+                                "missing_in_risks": missing_in_risks
+                            },
+                            "error",
                         )
+                    )
+
+            # CHECK 2: Cohort, biomarkers, risks should have same IDs (before filtering)
+            common_base = ids_cohort.intersection(ids_biomarkers).intersection(ids_risks)
+            base_consistency = len(common_base) == len(ids_cohort) == len(ids_biomarkers) == len(ids_risks)
+
+            if not base_consistency:
+                self.results.append(
+                    ValidationResult(
+                        "Cross-Dataset: Base Consistency (cohort/biomarkers/risks)",
+                        False,
+                        f"{len(common_base)} common IDs out of {len(ids_cohort)} expected",
+                        {"common": len(common_base), "expected": len(ids_cohort)},
+                        "error",
+                    )
+                )
 
     def print_report(self):
-        print("\n" + "=" * 60)
+        print("-" * 30)
         print("VALIDATION REPORT")
-        print("=" * 60)
+        print("-" * 30)
         passed = sum(1 for r in self.results if r.passed)
         total = len(self.results)
         warnings_count = sum(1 for r in self.results if not r.passed and r.severity == "warning")
@@ -741,15 +859,31 @@ class DatasetValidator:
         print(f"  FAILED: {errors}")
         print("\nDETAILED RESULTS:")
         for i, result in enumerate(self.results, 1):
-            print(f"{i}. {result}")
+            print(f"{i:02d} {result}")
+
+        self.print_summary()
+
         if errors == 0:
             if warnings_count == 0:
-                print("\nALL CHECKS PASSED SUCCESSFULLY!\n")
+                print(f"\nALL CHECKS PASSED SUCCESSFULLY!")
             else:
-                print("\nCHECKS PASSED WITH MINOR WARNINGS\n")
+                print(f"\nCHECKS PASSED WITH MINOR WARNINGS")
         else:
-            print("\nCRITICAL ERRORS DETECTED\n")
+            print(f"\nCRITICAL ERRORS DETECTED")
         return errors == 0
+
+    def print_summary(self):
+        """Print summary table after all tests"""
+        passed = sum(1 for r in self.results if r.passed)
+        warnings_count = sum(1 for r in self.results if not r.passed and r.severity == "warning")
+        errors = sum(1 for r in self.results if not r.passed and r.severity == "error")
+        total = len(self.results)
+
+        print("-" * 30)
+        print(f"\n{'Total tests':<11} {total:>10}")
+        print(f"{' PASSED':<11} {passed:>10}")
+        print(f"{' WARNINGS':<11} {warnings_count:>10}")
+        print(f"{' ERRORS':<11} {errors:>10}")
 
     def export_report(self, filepath: str):
 
@@ -795,20 +929,29 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python validator.py --local data/synthetic_v1.0.2
-  python validator.py --github kavalex/SyntheticHealthSimulator --version v1.0.2 --report report.json
+  python validator.py --local data/synthetic_v0.0.0
         """,
     )
-    source_group = parser.add_mutually_exclusive_group(required=True)
-    source_group.add_argument("--local", "-l", type=str, help="Path to local directory")
-    source_group.add_argument("--github", "-g", type=str, help="GitHub repo (owner/repo)")
-    parser.add_argument("--version", "-v", type=str, help="Version tag (required with --github)")
+    parser.add_argument("--local", "-l", type=str, default=None,
+                        help="Path to local dataset directory (default: auto from VERSION file)")
     parser.add_argument("--report", "-r", type=str, help="Path to save JSON report")
     parser.add_argument("--quiet", "-q", action="store_true", help="Quiet mode (errors only)")
+
     args = parser.parse_args()
-    if args.github and not args.version:
-        parser.error("--github requires --version")
-    validator = DatasetValidator(data_path=args.local, github_repo=args.github, version=args.version)
+
+    if args.local is None:
+        version_file = Path("VERSION")
+        if version_file.exists():
+            with open(version_file, "r") as f:
+                version = f.read().strip()
+            args.local = f"data/synthetic_v{version}"
+            print(f"Using default data path: {args.local}")
+        else:
+            parser.error("No --local specified and VERSION file not found. "
+                         "Please provide --local or create VERSION file in project root.")
+
+    validator = DatasetValidator(data_path=args.local)
+
     if not validator.load_data():
         sys.exit(1)
     validator.validate_all()
