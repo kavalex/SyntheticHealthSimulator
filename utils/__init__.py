@@ -14,7 +14,7 @@ from .validators import (
     run_validation_checks, print_validation_table
 )
 
-__version__ = "1.1.1"
+__version__ = "2.0.0"
 __all__ = [
     'get_version', 'get_data_path', 'get_output_dir',
     'load_baseline', 'load_lifestyle', 'load_biomarkers', 'load_risks', 'load_aggregated', 'load_all_datasets',

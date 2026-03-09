@@ -49,6 +49,16 @@ def bump_version(part: str = "patch"):
     else:
         print("pyproject.toml not found, skipping.")
 
+    # utils/__init__.py
+    pyproject = Path("utils/__init__.py")
+    if pyproject.exists():
+        content = pyproject.read_text()
+        content = re.sub(r'version = "[\d.]+"', f'version = "{new_version}"', content)
+        pyproject.write_text(content)
+        print(f"utils/__init__.py version updated to {new_version}")
+    else:
+        print("utils/__init__.pyl not found, skipping.")
+
     print(f"Version bumped: {current} → {new_version}")
 
 
