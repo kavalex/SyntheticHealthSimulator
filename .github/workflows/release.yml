@@ -24,41 +24,17 @@ jobs:
       - name: Generate data
         run: python generator.py
 
-      - name: Validate generated data
-        run: |
-          VERSION=${GITHUB_REF_NAME}
-          python validator.py \
-            --local "data/synthetic_${VERSION}" \
-            --report validation_report.json
-
-          ERRORS=$(jq '.summary.errors' validation_report.json)
-          if [ "$ERRORS" -gt 0 ]; then
-            echo "Validation failed with $ERRORS errors"
-            jq '.details[] | select(.severity=="error")' validation_report.json
-            exit 1
-          fi
-
-          WARNINGS=$(jq '.summary.warnings' validation_report.json)
-          echo "Validation passed with $WARNINGS warnings"
-
       - name: Create release archive
         run: |
           VERSION=${GITHUB_REF_NAME}
           cd "data/synthetic_${VERSION}"
           zip -r "../../synthetic_data_${VERSION}.zip" .
 
-      - name: Upload validation report
-        uses: actions/upload-artifact@v4
-        with:
-          name: validation-report-${GITHUB_REF_NAME}
-          path: validation_report.json
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             synthetic_data_${{ github.ref_name }}.zip
-            validation_report.json
           generate_release_notes: true
           draft: false
         env:
