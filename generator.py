@@ -1,18 +1,7 @@
 #!/usr/bin/env python3
 """
-SyntheticHealthSimulator v1.1.3
+SyntheticHealthSimulator
 Medical Data Generator with Full Functionality and Calibrated Realism
-
-CHANGES IN v1.1.3 (COMBINES v1.1.1 + v1.1.2 + RECOMMENDATIONS):
-- KEPT: Calibrated intercepts (CVD -3.8, Stroke -3.0)
-- KEPT: BMI mean reversion (prevents 54% boundary violations)
-- KEPT: Reduced SBP coefficients (target mean 125 mmHg)
-- KEPT: MAR age threshold 45 years
-- KEPT: Male height 178 cm
-- ADDED: HbA1c drift 0.015%/year + diabetes_risk dependency
-- ADDED: HDL reduction -0.5 to -1.0 mg/dL per decade
-- ADDED: CVD prevalence ~15-18%
-- ADDED: Stroke prevalence ~18-20%
 
 WARNING: NOT FOR CLINICAL USE - EDUCATIONAL PURPOSES ONLY
 """
@@ -99,12 +88,12 @@ class DataGenerator:
     def __init__(
             self,
             seed: int = 42,
-            diabetes_threshold: float = 18.7,
-            cvd_intercept: float = -3.8,  # Калибровано для ~15-18% prevalence
-            stroke_intercept: float = -3.0,  # Калибровано для ~18-20% prevalence
+            diabetes_threshold: float = 16.5,
+            cvd_intercept: float = -3.8,
+            stroke_intercept: float = -3.0,
             nafld_intercept: float = -2.5,
-            cancer_intercept: float = -1.2,
-            cirrhosis_intercept: float = -1.7,
+            cancer_intercept: float = -2.0,
+            cirrhosis_intercept: float = -2.2,
     ):
         """Initialize generator with calibrated parameters."""
         self.current_year = datetime.now().year
@@ -271,13 +260,13 @@ class DataGenerator:
         genetic_cvd = self._to_array(genetic_cvd)
 
         logit = (
-                self.cvd_intercept +  # -3.8 для ~15-18% prevalence
-                0.05 * (age - 40) +
-                0.03 * (sbp - 120) +
-                0.3 * (np.clip(non_hdl_mmol, 2.0, 6.0) - 3.5) +
-                0.08 * pack_years +
-                0.9 * (hba1c >= 6.5).astype(float) +
-                0.4 * genetic_cvd
+                self.cvd_intercept
+                + 0.05 * (age - 40)
+                + 0.03 * (sbp - 120)
+                + 0.3 * (np.clip(non_hdl_mmol, 2.0, 6.0) - 3.5)
+                + 0.08 * pack_years
+                + 0.9 * (hba1c >= 6.5).astype(float)
+                + 0.4 * genetic_cvd
         )
         risk = 1 / (1 + np.exp(-logit))
         risk = np.clip(risk, 0, 0.5)
@@ -316,7 +305,7 @@ class DataGenerator:
         points += hba1c_points
         points += (smoking > 0).astype(float) * 2
         points += (fiber < 20).astype(float) * 1
-        points += (macro_imbalance > 20).astype(float) * 2
+        points += (macro_imbalance > 2).astype(float) * 2
         points += (muscle_mass < 5).astype(float) * 1
         points += (sleep_hours < 6).astype(float) * 2
         points += (genetic_diabetes > 1.5).astype(float) * 3
@@ -343,13 +332,13 @@ class DataGenerator:
         genetic_stroke = self._to_array(genetic_stroke)
 
         logit = (
-                0.03 * (age - 50) +
-                0.015 * (sbp - 120) +
-                0.3 * (hba1c - 5.5) +
-                0.15 * smoking_binary +
-                0.03 * (bmi_corrected - 25) +
-                0.4 * genetic_stroke +
-                self.stroke_intercept  # -3.0
+                self.stroke_intercept
+                + 0.03 * (age - 50)
+                + 0.015 * (sbp - 120)
+                + 0.3 * (hba1c - 5.5)
+                + 0.15 * smoking_binary
+                + 0.03 * (bmi_corrected - 25)
+                + 0.4 * genetic_stroke
         )
         risk = 1 / (1 + np.exp(-logit))
         risk = np.clip(risk, 0, 0.4)
@@ -373,13 +362,13 @@ class DataGenerator:
         genetic_nafld = self._to_array(genetic_nafld)
 
         logit = (
-                0.02 * (age - 50) +
-                0.04 * (bmi_corrected - 25) +
-                0.25 * (hba1c - 5.5) +
-                0.4 * (saturated_fat - 0.3) +
-                0.3 * (fiber < 25).astype(float) +
-                0.4 * genetic_nafld +
                 self.nafld_intercept
+                + 0.02 * (age - 50)
+                + 0.04 * (bmi_corrected - 25)
+                + 0.25 * (hba1c - 5.5)
+                + 0.4 * (saturated_fat - 0.3)
+                + 0.3 * (fiber < 25).astype(float)
+                + 0.4 * genetic_nafld
         )
         risk = 1 / (1 + np.exp(-logit))
         risk = np.clip(risk, 0, 0.5)
@@ -394,7 +383,7 @@ class DataGenerator:
             bmi_corrected,
             genetic_cancer,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """Colorectal cancer risk calculation."""
+        """Colorectal cancer risk calculation with increased variability."""
         age = self._to_array(age)
         fiber = self._to_array(fiber)
         alcohol = self._to_array(alcohol)
@@ -402,18 +391,25 @@ class DataGenerator:
         bmi_corrected = self._to_array(bmi_corrected)
         genetic_cancer = self._to_array(genetic_cancer)
 
+        # Увеличенный шум для вариативности
+        random_noise = self.rng.normal(0, 0.5, len(age))  # Было 0.3, стало 0.5
+
         logit = (
-                0.06 * (age - 50) +
-                0.8 * (fiber < 20).astype(float) +
-                0.6 * (alcohol > 140).astype(float) +
-                0.7 * smoking_binary +
-                0.5 * (bmi_corrected > 30).astype(float) +
-                0.9 * genetic_cancer +
-                self.rng.normal(0, 0.3, len(age)) +
                 self.cancer_intercept
+                + 0.06 * (age - 50)
+                + 0.8 * (fiber < 20).astype(float)
+                + 0.6 * (alcohol > 140).astype(float)
+                + 0.7 * smoking_binary
+                + 0.5 * (bmi_corrected > 30).astype(float)
+                + 0.9 * genetic_cancer
+                + random_noise
         )
         risk = 1 / (1 + np.exp(-logit))
-        risk = np.clip(risk, 0, 0.4)
+
+        # Мягкое ограничение вместо жёсткого clip
+        # Используем sigmoid-ограничение для сохранения градиентов
+        risk = np.clip(risk, 0.05, 0.35)  # Расширенный диапазон
+
         return risk, logit
 
     def _calculate_cirrhosis_risk(
@@ -424,24 +420,33 @@ class DataGenerator:
             bmi_corrected,
             genetic_cirrhosis,
     ) -> Tuple[np.ndarray, np.ndarray]:
-        """Cirrhosis risk calculation."""
+        """Cirrhosis risk calculation with increased variability."""
         age = self._to_array(age)
         alcohol = self._to_array(alcohol)
         smoking_binary = (self._to_array(smoking) > 0).astype(float)
         bmi_corrected = self._to_array(bmi_corrected)
         genetic_cirrhosis = self._to_array(genetic_cirrhosis)
 
+        # Увеличенный шум и нелинейное влияние алкоголя
+        random_noise = self.rng.normal(0, 0.4, len(alcohol))
+
+        # Усиленное влияние алкоголя через log1p для большей вариативности
+        alcohol_effect = 0.8 * np.log1p(alcohol)  # Было 0.6 * log1p(alcohol)
+
         logit = (
-                0.015 * (age - 50) +
-                0.6 * np.log1p(alcohol) +
-                0.4 * smoking_binary +
-                0.5 * (bmi_corrected > 30).astype(float) +
-                0.8 * genetic_cirrhosis +
-                self.rng.normal(0, 0.25, len(alcohol)) +
                 self.cirrhosis_intercept
+                + alcohol_effect
+                + 0.015 * (age - 50)
+                + 0.4 * smoking_binary
+                + 0.5 * (bmi_corrected > 30).astype(float)
+                + 0.8 * genetic_cirrhosis
+                + random_noise
         )
         risk = 1 / (1 + np.exp(-logit))
-        risk = np.clip(risk, 0, 0.4)
+
+        # Расширенный диапазон
+        risk = np.clip(risk, 0.02, 0.25)
+
         return risk, logit
 
     @staticmethod
@@ -524,7 +529,7 @@ class DataGenerator:
         muscle_benefit = 0.05 * muscle_mass
 
         fat_penalty = -0.12 * (delta_sat_fat * 100.0)
-        bmi_penalty = -0.15 * np.maximum(0, bmi_curr - 25)
+        bmi_penalty = np.maximum(0, bmi_curr - 30) * (-0.5)
         age_penalty = -0.04 * np.maximum(0, age_curr - 35)
 
         # Половой дифференциал
@@ -600,7 +605,7 @@ class DataGenerator:
         target_weight = target_bmi * (height_m ** 2)
 
         # Mean reversion сила (1.5% в год)
-        reversion_force = (target_weight - weight_kg) * 0.04
+        reversion_force = (target_weight - weight_kg) * 0.08
 
         # Баланс калорий
         calorie_balance = calories_consumed - tdee
@@ -608,7 +613,7 @@ class DataGenerator:
 
         # Итоговое изменение
         weight_change = metabolic_change + reversion_force
-        return np.clip(weight_change, -2.0, 2.5)
+        return np.clip(weight_change, -2.0, 1.5)
 
     @staticmethod
     def calculate_metabolic_rate(
@@ -703,7 +708,7 @@ class DataGenerator:
         typical_muscle = self.TYPICAL_MUSCLE_RATIO * weight_start
         bmr += self.BMR_MUSCLE_CORRECTION * (muscle * self.MUSCLE_PARAMS["mm_to_weight_kg"] - typical_muscle)
 
-        # Generate latent lipid factor (ВОССТАНОВЛЕНО из v1.1.1)
+        # Generate latent lipid factor
         lipid_factor = self._generate_truncnorm(loc=0, scale=1, low=-2, high=2, size=n_people)
 
         cohort = pd.DataFrame({
@@ -779,13 +784,13 @@ class DataGenerator:
 
                 series = locals()[f"{key}_series"]
                 series[:, t] = (
-                        series[:, t - 1] +
-                        theta * (baseline - series[:, t - 1]) +
-                        sigma * self.rng.normal(size=n_people)
+                        series[:, t - 1]
+                        + theta * (baseline - series[:, t - 1])
+                        + sigma * self.rng.normal(size=n_people)
                 )
                 series[:, t] = np.clip(series[:, t], min_val, max_val)
 
-        # Apply stress events (ВОССТАНОВЛЕНО из v1.1.1)
+        # Apply stress events
         stress_events, sleep_events, alcohol_events = self._generate_stress_event(years)
         for t in range(years):
             stress_series[:, t] += stress_events[t]
@@ -842,7 +847,7 @@ class DataGenerator:
         delta_f = np.abs(fat_pct_arr[:, 0] - 0.30) * 100
         delta_c = np.abs(carb_pct_arr[:, 0] - 0.40) * 100
         macro_raw = np.sqrt(delta_p ** 2 + delta_f ** 2 + delta_c ** 2)
-        macro_imbalance_arr[:, 0] = np.minimum(macro_raw * 10, 100)
+        macro_imbalance_arr[:, 0] = macro_raw
 
         calories_approx = tdee_true[:, 0] + self.rng.normal(0, 200, n_people)
         calories_approx = np.maximum(calories_approx, 1200)
@@ -873,7 +878,7 @@ class DataGenerator:
             ])
 
             # Calorie intake
-            calorie_offset = self.rng.normal(50, 200, n_people)
+            calorie_offset = self.rng.normal(0, 100, n_people)
             calories = tdee_prev + calorie_offset
             calories = np.maximum(calories, 1200)
             alcohol_cal_per_day = (alcohol_series[:, t] / 7) * 7
@@ -900,7 +905,7 @@ class DataGenerator:
             macro_raw = np.sqrt(delta_p ** 2 + delta_f ** 2 + delta_c ** 2)
             macro_imbalance = np.minimum(macro_raw * 10, 100)
 
-            # Protein balance (ВОССТАНОВЛЕНО из v1.1.1)
+            # Protein balance
             protein_grams = (protein_pct / 100) * non_alcohol_cal / 4
             protein_g_per_kg = protein_grams / prev_weight
             protein_balance = np.zeros(n_people)
@@ -1030,9 +1035,10 @@ class DataGenerator:
         sbp_true = np.zeros((n_people, years))
         hba1c_true = np.zeros((n_people, years))
 
-        # Year 0 - apply lipid factor (ВОССТАНОВЛЕНО из v1.1.1)
+        # Year 0 - apply lipid factor
         hdl_adjusted = initial_hdl + self.LIPID_EFFECT * lipid_factor
-        hdl_true[:, 0] = np.clip(hdl_adjusted, self.BIOMARKER_RANGES["hdl_mgdl"][0], self.BIOMARKER_RANGES["hdl_mgdl"][1])
+        hdl_true[:, 0] = np.clip(hdl_adjusted, self.BIOMARKER_RANGES["hdl_mgdl"][0],
+                                 self.BIOMARKER_RANGES["hdl_mgdl"][1])
         tc_true[:, 0] = self._clip_biomarker(initial_tc - self.LIPID_EFFECT * lipid_factor, "tc")
         sbp_true[:, 0] = self._clip_biomarker(initial_sbp, "sbp")
         hba1c_true[:, 0] = self._clip_biomarker(initial_hba1c, "hba1c")
@@ -1126,7 +1132,7 @@ class DataGenerator:
             hba1c_new = hba1c_true[:, t - 1] + hba1c_change
             hba1c_true[:, t] = self._clip_biomarker(hba1c_new, "hba1c")
 
-        # Apply lipid factor effect across all years (ВОССТАНОВЛЕНО из v1.1.1)
+        # Apply lipid factor effect across all years
         hdl_true += self.LIPID_EFFECT * lipid_factor[:, np.newaxis]
         tc_true -= self.LIPID_EFFECT * lipid_factor[:, np.newaxis]
 
@@ -1157,13 +1163,13 @@ class DataGenerator:
             hba1c_noisy = hba1c_true[:, y] + self.rng.normal(0, noise["hba1c"], n_people)
             data_dict[f"hba1c_percent_{y}"] = self._clip_biomarker(hba1c_noisy, "hba1c")
 
-            # BMI and corrected BMI (ВОССТАНОВЛЕНО из v1.1.1)
+            # BMI and corrected BMI
             bmi = data_dict[f"weight_kg_{y}"] / height_sq
             data_dict[f"bmi_{y}"] = self._clip_biomarker(bmi, "bmi")
             bmi_corr = bmi * (1 - 0.01 * muscle_true[:, y])
             data_dict[f"bmi_corrected_{y}"] = self._clip_biomarker(bmi_corr, "bmi")
 
-            # Non-HDL (ВОССТАНОВЛЕНО из v1.1.1)
+            # Non-HDL
             non_hdl_mgdl = data_dict[f"total_cholesterol_mgdl_{y}"] - data_dict[f"hdl_mgdl_{y}"]
             non_hdl_mgdl_clipped = self._clip_biomarker(non_hdl_mgdl, "non_hdl_mgdl")
             data_dict[f"non_hdl_mgdl_{y}"] = non_hdl_mgdl_clipped
@@ -1245,13 +1251,14 @@ class DataGenerator:
         final_non_hdl_mmol = final_non_hdl_mgdl / 38.67
         final_sbp = biomarkers_df[f"sbp_mmhg_{last_year}"].values
         final_hba1c = biomarkers_df[f"hba1c_percent_{last_year}"].values
-        cumulative_smoking = biomarkers_df[f"cumulative_smoking_{last_year}"].values
         final_alcohol = biomarkers_df[f"alcohol_g_per_week_{last_year}"].values
         final_fiber = biomarkers_df[f"fiber_g_day_{last_year}"].values
         final_saturated_fat = biomarkers_df[f"saturated_fat_pct_{last_year}"].values
         final_macro_imbalance = biomarkers_df[f"macro_imbalance_{last_year}"].values
         final_muscle = biomarkers_df[f"muscle_mass_factor_{last_year}"].values
         final_sleep = biomarkers_df[f"sleep_hours_{last_year}"].values
+
+        cumulative_smoking = biomarkers_df[f"cumulative_smoking_{last_year}"].values
 
         person_ids = biomarkers_df["person_id"]
         genetic_data = cohort_df.set_index("person_id").reindex(person_ids)
@@ -1300,8 +1307,8 @@ class DataGenerator:
         risks_df["diabetes_risk_10year"] = diabetes_risk.clip(0, 0.5)
         risks_df["stroke_risk_10year"] = stroke_risk.clip(0, 0.4)
         risks_df["nafld_risk_10year"] = nafld_risk.clip(0, 0.6)
-        risks_df["colorectal_cancer_risk_10year"] = cancer_risk.clip(0, 0.3)
-        risks_df["cirrhosis_risk_10year"] = cirrhosis_risk.clip(0, 0.2)
+        risks_df["colorectal_cancer_risk_10year"] = cancer_risk.clip(0.05, 0.35)
+        risks_df["cirrhosis_risk_10year"] = cirrhosis_risk.clip(0.02, 0.25)
         risks_df["health_score"] = health_score
 
         risks_df["has_cvd"] = self.rng.binomial(1, cvd_risk.clip(0, 0.5))
@@ -1324,7 +1331,7 @@ class DataGenerator:
                     f"Consider adjusting risk thresholds."
                 )
 
-        # Determine primary death cause (ВОССТАНОВЛЕНО из v1.1.1)
+        # Determine primary death cause
         conditions = [
             (cvd_risk > 0.3) & (self.rng.random(len(risks_df)) < 0.15),
             (diabetes_risk > 0.25) & (self.rng.random(len(risks_df)) < 0.08),
@@ -1334,7 +1341,7 @@ class DataGenerator:
         choices = ["Cardiovascular disease", "Diabetes complications", "Stroke", "Liver failure"]
         risks_df["primary_death_cause"] = np.select(conditions, choices, default="Other")
 
-        # Estimate event age based on health score (ВОССТАНОВЛЕНО из v1.1.1)
+        # Estimate event age based on health score
         base_age = 60
         risks_df["estimated_event_age"] = base_age - 20 * (1 - risks_df["health_score"] / 100)
         risks_df["sex"] = genetic_data["sex"].values
@@ -1607,7 +1614,7 @@ def main():
     target_n_people = 5000
 
     # Oversampling coefficient to compensate for boundary filtering losses
-    boundary_coefficient = 2.41
+    boundary_coefficient = 1.2
     n_people = int(target_n_people * boundary_coefficient)
 
     print(f"\nGeneration parameters:")
