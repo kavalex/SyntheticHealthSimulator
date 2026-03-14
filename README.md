@@ -33,13 +33,13 @@ Get started in 3 commands:
 pip install numpy pandas scipy scikit-learn matplotlib seaborn
 
 # 2. Generate synthetic data (5000 patients, 20 years)
-python generator.py
+python scripts/generate.py
 
 # 3. Validate the output
-python validator.py --local data/synthetic_v2.0.0
+python scripts/validate.py
 ```
 
-**Expected output:** 5 CSV files + 5 JSON metadata files in `data/synthetic_v2.0.0/`
+**Expected output:** 5 CSV files in `data/synthetic_v2.0.0/` and validation report in `output/validation_report.txt`.
 
 ---
 
@@ -52,8 +52,9 @@ python validator.py --local data/synthetic_v2.0.0
 - [Usage](#usage)
     - [Basic Data Generation](#basic-data-generation)
     - [Data Validation](#data-validation)
-    - [Sensitivity Analysis](#sensitivity-analysis)
-- [Analysis Notebooks](#analysis-notebooks)
+    - [Statistics Generation](#statistics-generation)
+    - [Visualization](#visualization)
+- [Analysis Scripts](#analysis-scripts)
 - [Structure of Generated Data](#structure-of-generated-data)
 - [Calibration and Configuration](#calibration-and-configuration)
 - [Documentation](#documentation)
@@ -82,38 +83,43 @@ lifestyle factors, and testing algorithms for handling missing data.
 
 ## Pipeline Overview
 
-1. **Generator** (`generator.py`)
-   - Baseline cohort (demographics, genetics, initial biomarkers)
-   - 20-year lifestyle trajectories (OU processes)
-   - Annual biomarker evolution with noise
-   - Disease risk calculation (SCORE2, FINDRISC-like)
+1. **Generator** (`scripts/generate.py`)
+    - Baseline cohort (demographics, genetics, initial biomarkers)
+    - 20-year lifestyle trajectories (OU processes)
+    - Annual biomarker evolution with noise
+    - Disease risk calculation (SCORE2, FINDRISC-like)
 
-2. **Output Datasets** (5 CSV + 5 JSON)
-   - `01_cohort_baseline` — immutable characteristics
-   - `02_lifestyle_history` — yearly lifestyle factors
-   - `03_biomarkers_history` — annual biomarkers with noise
-   - `04_health_risks` — 10-year risks and outcomes
-   - `05_aggregated_dataset_with_missing` — ML-ready with MAR missing values
+2. **Output Datasets** (5 CSV files)
+    - `01_cohort_baseline` — immutable characteristics
+    - `02_lifestyle_history` — yearly lifestyle factors
+    - `03_biomarkers_history` — annual biomarkers with noise
+    - `04_health_risks` — 10-year risks and outcomes
+    - `05_aggregated_dataset_with_missing` — ML-ready with MAR missing values
 
-3. **Validation** (`validator.py`)
-   - File structure & completeness
-   - Physiological ranges (hard clipping)
-   - Temporal trends & correlations
-   - Disease prevalence & comorbidity
-   - MAR missing patterns & cross-dataset consistency
+3. **Validation** (`scripts/validate.py`)
+    - File structure & completeness
+    - Physiological ranges (hard clipping)
+    - Temporal trends & correlations
+    - Disease prevalence & comorbidity
+    - MAR missing patterns & cross-dataset consistency
+    - Generates a text report in `output/validation_report.txt`
 
-4. **Analysis** (5 Jupyter Notebooks)
-   - `01`: Baseline cohort analysis
-   - `02`: Lifestyle trajectory analysis
-   - `03`: Biomarker trends & noise analysis
-   - `04`: Risk model validation & prediction
-   - `05`: Complete ML pipeline (imputation, engineering, ensemble)
+4. **Statistics** (`scripts/statistics.py`)
+    - Aggregates comprehensive statistics from all five datasets into a single CSV file
+    - Saves to `output/statistics/all_statistics.csv`
 
-5. **ML Models Ready for Training**
-   - Classification (6 diseases)
-   - Regression (biomarker forecasting)
-   - Missing data imputation testing
-   - Feature importance analysis
+5. **Visualization** (`scripts/visualize.py`)
+    - Creates 8 types of plots from the statistics file:
+        - Temporal trends, distribution evolution, percentile bands, delta distributions,
+          dashboard grid, reference comparison, deviation heatmap, and a summary report.
+    - Saves plots and report in `output/visualizations/`
+
+6. **Analysis Scripts** (5 Python scripts in `analysis/` directory)
+    - `01_cohort_baseline_analysis.py` – baseline cohort exploration
+    - `02_lifestyle_history_analysis.py` – lifestyle trajectory analysis
+    - `03_biomarkers_analysis.py` – biomarker trends & noise
+    - `04_health_risks_analysis.py` – risk model validation
+    - `05_aggregated_complete_pipeline.py` – complete ML pipeline with missing data
 
 ---
 
@@ -129,7 +135,7 @@ pip install numpy pandas scipy scikit-learn matplotlib seaborn
 uv sync
 ```
 
-After installation, clone the repository or copy the `generator.py` file.
+After installation, clone the repository or copy the `scripts/` and `src/` folders.
 
 ---
 
@@ -137,219 +143,102 @@ After installation, clone the repository or copy the `generator.py` file.
 
 ### Basic Data Generation
 
-Generating data for 5000 people with a 20-year observation period:
+Generate data for 5000 people with a 20-year observation period:
 
 ```bash
-python generator.py
+python scripts/generate.py
 ```
 
-All settings are defined in the `main()` function:
+All settings are defined in `src/config.py` and `src/coefficients.py`. You can override parameters via command-line
+arguments:
 
-| Parameter              | Description                            | Default Value          |
-|------------------------|----------------------------------------|------------------------|
-| `target_n_people`      | Number of synthetic patients           | 5000                   |
-| `years`                | Observation period (years)             | 20                     |
-| `seed`                 | Random seed for reproducibility        | 42                     |
-| `diabetes_threshold`   | Diabetes risk calibration threshold    | 16.5 (~15% prevalence) |
-| `boundary_coefficient` | Oversampling coefficient for filtering | 2.41                   |
+| Argument         | Description                                    | Default |
+|------------------|------------------------------------------------|---------|
+| `--people`, `-p` | Target number of patients                      | 5000    |
+| `--years`, `-y`  | Observation period (years)                     | 20      |
+| `--seed`, `-s`   | Random seed                                    | 42      |
+| `--output`, `-o` | Output directory (default `data/synthetic_v*`) | auto    |
+| `--quiet`, `-q`  | Suppress info logging                          | False   |
 
-Upon completion, **five CSV files** (and corresponding JSON metadata files) will be created in the `data/synthetic_v*`
-folder.
+Example:
+
+```bash
+python scripts/generate.py --people 1000 --years 10 --seed 123
+```
+
+Upon completion, five CSV files are created in the specified data directory.
 
 ### Data Validation
 
-The repository includes a built-in validator (`validator.py`) to ensure that the generated data meets the expected
-statistical properties, physiological ranges, and correlations.
-
-**What the validator checks:**
-
-- File completeness and structure
-- Demographic distributions (age, sex, height)
-- Genetic risk distributions
-- Biomarker ranges and hard clipping (Final Year only)
-- Temporal trends (e.g., HDL decrease, HbA1c increase)
-- Disease prevalence and risk-outcome correlations
-- Comorbidity (2 or more diseases prevalence)
-- Missing-at-random (MAR) patterns
-- Cross-dataset consistency (person IDs, BMI)
-
-**Running validation:**
+Validate the generated dataset (automatically uses the latest version):
 
 ```bash
-python validator.py --local data/synthetic_v*
+python scripts/validate.py
 ```
 
-An optional `--report report.json` flag saves a detailed JSON report:
+This performs all checks and saves a report to `output/validation_report.txt`. If any critical errors are found, the
+script exits with a non‑zero code.
+
+### Statistics Generation
+
+Generate a single CSV file containing summary statistics for all datasets:
 
 ```bash
-python validator.py --local data/synthetic_v* --report validation_report.json
+python scripts/statistics.py
 ```
 
-If all checks pass, you will see:
+Output: `output/statistics/all_statistics.csv`
 
-```
-ALL CHECKS PASSED SUCCESSFULLY!
-```
+### Visualization
 
-### Sensitivity Analysis
-
-A sensitivity analysis tool (`sensitivity_analysis.py`) is included to test generator stability across different random
-seeds and evaluate ML model performance consistency.
-
-**Running sensitivity analysis:**
+Create 8 visualizations from the statistics file:
 
 ```bash
-python sensitivity_analysis.py
+python scripts/visualize.py
 ```
 
-This will:
+Outputs are saved in `output/visualizations/`:
 
-- Generate data with multiple random seeds
-- Train a Gradient Boosting classifier on each dataset
-- Calculate AUC scores and disease prevalence
-- Generate summary statistics and visualization plots
-- Save results to `sensitivity_analysis_results.csv` and `sensitivity_analysis_plots.png`
+- 8 SVG plots
+- `reference_comparison_table.csv`
+- `validation_summary_report.txt`
 
 ---
 
-## Analysis Notebooks
+## Analysis Scripts
 
-The repository includes five comprehensive Jupyter notebooks for data exploration, validation, and ML pipeline
-demonstration. Each notebook focuses on a specific aspect of the generated data.
+The repository includes five self‑contained Python scripts (formerly Jupyter notebooks) for in‑depth analysis of each
+dataset. They use the common helpers from `src.utils.analysis_helpers` and produce output in `output/analysis/`.
 
-### Notebook 1: Baseline Cohort Analysis (`01_cohort_baseline_analysis.ipynb`)
+### Script 1: Baseline Cohort Analysis (`analysis/01_cohort_baseline_analysis.py`)
 
-**Purpose:** Explore static characteristics of patients and examine how well baseline data predicts diseases developed
-over 20 years.
+**Purpose:** Explore static characteristics and baseline predictive power.
 
-**Key analyses:**
+**Outputs:** tables and figures in `output/analysis/01_cohort_baseline/`
 
-- Demographic distributions (age, sex, height)
-- Genetic risk distributions
-- Initial biomarker ranges and compliance with generator specifications
-- Correlation analysis between baseline features
-- Disease prediction from baseline data only (Logistic Regression, Random Forest)
-- Feature importance analysis
+### Script 2: Lifestyle History Analysis (`analysis/02_lifestyle_history_analysis.py`)
 
-**Key findings:**
+**Purpose:** Analyze 20‑year trajectories, OU processes, stress events, clustering.
 
-- Baseline features alone yield low predictive power (AUC 0.51-0.62)
-- Confirms that outcomes are primarily determined by lifestyle accumulated over 20 years
-- Age, BMI, and initial HbA1c are most important baseline predictors
+**Outputs:** `output/analysis/02_lifestyle_history/`
 
-**Output files:** `output/01_cohort_baseline/`
+### Script 3: Biomarkers Analysis (`analysis/03_biomarkers_analysis.py`)
 
----
+**Purpose:** Verify hard clipping, estimate noise, temporal trends, denoising.
 
-### Notebook 2: Lifestyle History Analysis (`02_lifestyle_history_analysis.ipynb`)
+**Outputs:** `output/analysis/03_biomarkers/`
 
-**Purpose:** Analyze 20-year lifestyle trajectories, verify OU process parameters, and link trajectories to demographics
-and outcomes.
+### Script 4: Health Risks Analysis (`analysis/04_health_risks_analysis.py`)
 
-**Key analyses:**
+**Purpose:** Validate risk formulas, calibration, disease prediction models.
 
-- OU process verification (autocorrelation, theta estimates)
-- Stress event detection and duration analysis
-- Trajectory clustering (KMeans on mean, std, trend)
-- Lifestyle differences by sex and disease status
-- Prediction of future lifestyle from past trajectories
-- Added value of static features vs. time series
+**Outputs:** `output/analysis/04_health_risks/`
 
-**Key findings:**
+### Script 5: Complete ML Pipeline (`analysis/05_aggregated_complete_pipeline.py`)
 
-- Cardio and strength activity show realistic stochastic behavior
-- Stress events persist into the following year (decay effect confirmed)
-- Three distinct lifestyle clusters identified with different disease prevalence
-- Lifestyle trajectories are primary drivers of future outcomes (R2 approx 0.50-0.60)
+**Purpose:** Full ML cycle on aggregated dataset with MAR missing values.
 
-**Output files:** `output/02_lifestyle_history/`
-
----
-
-### Notebook 3: Biomarkers Analysis (`03_biomarkers_analysis.ipynb`)
-
-**Purpose:** Explore annual biomarker measurements with added noise, verify hard clipping, and analyze temporal trends.
-
-**Key analyses:**
-
-- Hard clipping verification across all 20 years
-- Measurement noise estimation (using true values for weight)
-- Temporal trends by sex and diabetes status
-- Denoising with Gaussian smoothing
-- Prediction of future biomarker values from history
-- Cross-biomarker correlations over time
-
-**Key findings:**
-
-- Year 19 compliance: 100% within physiological ranges
-- Observed noise matches expected values (weight sigma approx 1.5 kg)
-- HDL decreases approx 10 mg/dL over 20 years
-- SBP increases approx 11 mmHg over 20 years
-- HbA1c increases approx 2.8% over 20 years
-- Noise attenuates correlations (true relationships stronger than observed)
-
-**Output files:** `output/03_biomarkers/`
-
----
-
-### Notebook 4: Health Risks Analysis (`04_health_risks_analysis.ipynb`)
-
-**Purpose:** Validate risk formulas, analyze calibration, and build prediction models for all 6 diseases.
-
-**Key analyses:**
-
-- Risk range validation (hard clipping)
-- Risk-prevalence alignment
-- Calibration metrics (Brier score, E/O ratio, calibration slope)
-- Risk distributions by demographics (sex, age quintiles)
-- Correlation analysis (risks vs. features)
-- ML prediction for all 6 diseases (Logistic Regression, Random Forest, Gradient Boosting)
-- Multiclass prediction (any disease)
-- Cross-dataset consistency check
-
-**Key findings:**
-
-- All 6 risk ranges pass hard clipping verification
-- Risk-prevalence alignment: maximum difference less than 0.05
-- Brier scores range from 0.126 (Diabetes) to 0.211 (Cancer)
-- E/O ratios close to 1.0: range 0.991-1.022
-- Best CVD model: Logistic Regression AUC-ROC = 0.651
-- Multiclass classification: Macro F1 = 0.16, Accuracy = 0.27
-
-**Output files:** `output/04_health_risks/`
-
----
-
-### Notebook 5: Complete ML Pipeline (`05_aggregated_complete_pipeline.ipynb`)
-
-**Purpose:** Demonstrate full ML cycle on aggregated dataset with MAR missing values.
-
-**Key analyses:**
-
-- EDA: Missing values analysis (MAR pattern validation)
-- Generator specification validation
-- Cross-dataset consistency check
-- Data preparation: Target and features (leakage removal)
-- Imputation method comparison (Simple vs. MICE)
-- Feature engineering (domain-informed features)
-- Model selection with cross-validation
-- Ensemble: Voting Classifier
-- Evaluation and model comparison
-- External validation (synthetic vs. reference data)
-- Threshold analysis for clinical utility
-
-**Key findings:**
-
-- 5000 patients, 47 features after cleaning
-- 6 columns with MAR missing values: 2.9-3.7%
-- Diabetes prevalence: approx 15%
-- MICE imputation recommended for MAR data
-- 5 engineered features added (metabolic_syndrome_score, high_alcohol_risk, etc.)
-- Best model: Ensemble (AUC-ROC approx 0.65)
-- Improvement vs. Notebook 4: +0.06 (+10%)
-- Threshold recommendation: 0.2 (screening), 0.3 (balance), 0.4 (diagnosis)
-
-**Output files:** `output/05_aggregated_pipeline/`
+**Outputs:** `output/analysis/05_aggregated_pipeline/`
 
 ---
 
@@ -369,7 +258,7 @@ One row per patient. Contains immutable characteristics and initial values.
 | Energy metabolism           | `bmr_start_kcal`<br/>`base_calories`                                                                                                                     |
 | Genetic risks               | `genetic_risk_cvd`<br/>`genetic_risk_diabetes`<br/>`genetic_risk_stroke`<br/>`genetic_risk_nafld`<br/>`genetic_risk_cancer`<br/>`genetic_risk_cirrhosis` |
 | Initial biomarkers          | `initial_hdl_mgdl`<br/>`initial_total_cholesterol_mgdl`<br/>`initial_sbp_mmhg`<br/>`initial_hba1c_percent`                                               |
-| Latent factors              | `lipid_factor`                                                                                                                                           |
+| Latent factors              | `lipid_factor_hdl`<br/>`lipid_factor_tc`                                                                                                                 |
 
 ### 2. Lifestyle History (`02_lifestyle_history_v*.csv`)
 
@@ -431,19 +320,18 @@ single factor and ensure balanced ML model training.
 
 ### Key Configurable Parameters:
 
-| Parameter              | Description                            | Default Value             |
-|------------------------|----------------------------------------|---------------------------|
-| `diabetes_threshold`   | Regulates diabetes prevalence          | 16.5 (~15%)               |
-| `cvd_intercept`        | SCORE2 model intercept                 | -3.8 (~15-18% prevalence) |
-| `stroke_intercept`     | Stroke model intercept                 | -3.0 (~18-20% prevalence) |
-| `boundary_coefficient` | Oversampling coefficient for filtering | 2.41                      |
+| Parameter              | Description                            | Default Value           |
+|------------------------|----------------------------------------|-------------------------|
+| `diabetes_threshold`   | Regulates diabetes prevalence          | 17 (~15%)               |
+| `risk_intercepts`      | Intercepts for logistic models         | CVD: -5.5, Stroke: -5.5 |
+| `boundary_coefficient` | Oversampling coefficient for filtering | 1.35                    |
 
 **Target Disease Prevalence:**
 
-- CVD: ~15-18%
-- Diabetes: ~15%
-- Stroke: ~18-20%
-- Comorbidity (2 or more diseases): 15-50%
+- CVD: ~10‑15%
+- Diabetes: ~10‑15%
+- Stroke: ~5‑10%
+- Comorbidity (2 or more diseases): 15‑50%
 
 Other coefficients (SCORE2, smoking, alcohol, sodium) are detailed in
 the [Scientific Reference](SCIENTIFIC_REFERENCE_EN.md).

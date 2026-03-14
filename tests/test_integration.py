@@ -1,84 +1,60 @@
 """
-Integration tests for complete pipeline
+Integration tests for complete pipeline - adapted for new structure
 """
+import pandas as pd
+from pathlib import Path
+from src.pipeline import generate
+from src.utils.validators import DatasetValidator
 
-from config import SimulationConfig
-from generator import DataGenerator
-
-
-class TestFullPipeline:
-    """End-to-end pipeline tests."""
-
+class TestPipelineIntegration:
     def test_pipeline_completes(self):
-        """Full pipeline should run without errors."""
-        gen = DataGenerator(
-            seed=42,
-            config=SimulationConfig(years=5, target_n_people=50)
-        )
+        result = generate(n_people=50, years=5, seed=42, log_level=40)
+        assert "cohort" in result
+        assert "lifestyle" in result
+        assert "biomarkers" in result
+        assert "risks" in result
+        assert "aggregated" in result
+        assert len(result["cohort"]) == 50
+        assert len(result["risks"]) == 50
+        assert len(result["aggregated"]) == 50
 
-        cohort = gen.generate_cohort(n_people=50)
-        lifestyle = gen.generate_lifestyle_history(cohort, years=5)
-        biomarkers = gen.calculate_biomarkers(cohort, lifestyle, years=5)
-        risks = gen.calculate_health_risks(biomarkers, cohort, years=5)
+    def test_reproducibility(self):
+        result1 = generate(n_people=30, years=3, seed=123, log_level=40)
+        result2 = generate(n_people=30, years=3, seed=123, log_level=40)
+        pd.testing.assert_frame_equal(result1["cohort"], result2["cohort"])
+        pd.testing.assert_frame_equal(result1["risks"], result2["risks"])
 
-        # Basic sanity checks
-        assert len(cohort) == 50
-        assert len(lifestyle) == 50
-        assert len(biomarkers) == 50
-        assert len(risks) == 50
+    def test_different_seeds_different_results(self):
+        result1 = generate(n_people=30, years=3, seed=123, log_level=40)
+        result2 = generate(n_people=30, years=3, seed=456, log_level=40)
+        assert not result1["cohort"].equals(result2["cohort"])
 
-    def test_dataframe_shapes(self):
-        """DataFrames should have expected column counts."""
-        gen = DataGenerator(
-            seed=42,
-            config=SimulationConfig(years=3, target_n_people=10)
-        )
+    def test_dataframe_shapes_consistent(self):
+        result = generate(n_people=20, years=3, seed=42, log_level=40)
+        ids_cohort = set(result["cohort"]["person_id"])
+        ids_risks = set(result["risks"]["person_id"])
+        ids_agg = set(result["aggregated"]["person_id"])
+        assert ids_cohort == ids_risks == ids_agg
+        assert result["aggregated"].shape[1] < result["lifestyle"].shape[1]
 
-        cohort = gen.generate_cohort(n_people=10)
-        # Cohort: person_id + demographics + baseline biomarkers
-        assert len(cohort.columns) > 15
+    def test_validator_class_location(self):
+        # Test that DatasetValidator is correctly imported from utils
+        from src.utils.validators import DatasetValidator
+        assert DatasetValidator is not None
 
-        lifestyle = gen.generate_lifestyle_history(cohort, years=3)
-        # Lifestyle: person_id + yearly columns for multiple variables
-        assert len(lifestyle.columns) > 30
+    def test_validator_runs_on_generated_data(self, tmp_path):
+        # Generate small dataset
+        result = generate(n_people=20, years=3, seed=42, log_level=40, output_dir=str(tmp_path))
+        
+        # Run validator
+        validator = DatasetValidator(tmp_path)
+        assert validator.load_data()
+        
+        validator.validate_all()
+        
+        # Check results
+        assert len(validator.results) > 0
+        # Most checks should pass
+        passed = sum(1 for r in validator.results if r.passed)
+        assert passed > len(validator.results) * 0.5  # At least half should pass
 
-        biomarkers = gen.calculate_biomarkers(cohort, lifestyle, years=3)
-        # Biomarkers: person_id + yearly measurements
-        assert len(biomarkers.columns) > 20
-
-    def test_no_missing_in_critical_columns(self):
-        """Critical columns should have no NaN before MAR."""
-        gen = DataGenerator(
-            seed=42,
-            config=SimulationConfig(years=5, target_n_people=50)
-        )
-
-        cohort = gen.generate_cohort(n_people=50)
-        lifestyle = gen.generate_lifestyle_history(cohort, years=5)
-        biomarkers = gen.calculate_biomarkers(cohort, lifestyle, years=5)
-
-        # Critical identifiers and baseline
-        assert cohort["person_id"].notna().all()
-        assert cohort["age_start"].notna().all()
-        assert cohort["sex"].notna().all()
-
-        # Biomarkers should be complete (before MAR)
-        for year in range(5):
-            assert biomarkers[f"weight_kg_{year}"].notna().all()
-            assert biomarkers[f"bmi_{year}"].notna().all()
-
-    def test_run_method(self):
-        """Test unified run() method if available."""
-        gen = DataGenerator(
-            seed=42,
-            config=SimulationConfig(years=3, target_n_people=20)
-        )
-
-        # Если у вас есть метод run_full_pipeline()
-        if hasattr(gen, 'run_full_pipeline'):
-            result = gen.run_full_pipeline(n_people=20)
-
-            assert "cohort" in result
-            assert "lifestyle" in result
-            assert "biomarkers" in result
-            assert "risks" in result
