@@ -9,8 +9,17 @@ dependencies = [
     "matplotlib>=3.10.8",
     "numpy>=2.4.2",
     "pandas>=3.0.1",
+    "pytest>=9.0.2",
     "scikit-learn>=1.8.0",
     "scipy-stubs~=1.17.1",
     "seaborn>=0.13.2",
     "urlopen>=1.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = [
+    "--import-mode=importlib",
+    "-v",
 ]
