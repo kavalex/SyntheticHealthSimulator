@@ -24,6 +24,17 @@ This tool is intended exclusively for educational and research purposes in the f
 
 ---
 
+## How this was built
+
+This project was developed as part of an ML course. My role: problem framing,
+feature design, model selection, and evaluation. AI assistants were used for
+code generation and boilerplate (data generation scripts, validation helpers,
+plotting code). All analytical decisions, model choices, and the evaluation
+strategy were mine. The generated code was reviewed and adapted to the specific
+requirements of the coursework.
+
+---
+
 ## Quick Start
 
 Get started in 3 commands:
