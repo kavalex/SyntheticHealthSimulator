@@ -26,12 +26,14 @@ This tool is intended exclusively for educational and research purposes in the f
 
 ## How this was built
 
-This project was developed as part of an ML course. My role: problem framing,
-feature design, model selection, and evaluation. AI assistants were used for
-code generation and boilerplate (data generation scripts, validation helpers,
-plotting code). All analytical decisions, model choices, and the evaluation
-strategy were mine. The generated code was reviewed and adapted to the specific
-requirements of the coursework.
+I used AI assistants heavily in this project. I was responsible for problem framing, architecture, model selection and calibration, 
+and checking the generator's outputs against published patterns and the scientific reference included in this repo. 
+I don't have a medical degree and I'm not a Python expert. This is a plausibility check, not clinical validation.
+
+AI assistants were used to generate code (generator, validator, sensitivity analysis, notebooks), 
+to help draft and refine the scientific reference, and to serve as additional reviewers during calibration. 
+Their agreement was a signal to keep iterating, not a substitute for domain validation. 
+I reviewed, tested, and adapted the code I kept. I'm responsible for the final model design, calibration choices, and validation criteria.
 
 ---
 
